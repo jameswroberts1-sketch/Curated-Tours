@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plaque Lark</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        plaque: {
+                            blue: '#1e3a8a',
+                            gold: '#fbbf24',
+                            light: '#eff6ff',
+                        }
+                    },
+                    animation: {
+                        'bounce-short': 'bounce 1s infinite 2',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar for cleanliness */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #999; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen pb-10">
+
+    <!-- Header Section -->
+    <header class="bg-white shadow-sm relative z-20 pt-6">
+        <div class="max-w-2xl mx-auto px-4 h-72 flex items-end justify-between relative">
+            <!-- Left Spacer -->
+            <div class="w-10"></div>
+            
+            <!-- Center Logo -->
+            <div class="absolute left-1/2 transform -translate-x-1/2 flex items-end justify-center cursor-pointer h-full" onclick="app.goHome()">
+                <img 
+                    src="https://raw.githubusercontent.com/jameswroberts1-sketch/PlaqueLark/main/PlaqueLark.PNG" 
+                    alt="Plaque Lark" 
+                    class="h-full w-auto object-contain scale-110 origin-bottom"
+                    onerror="this.style.display='none'; document.getElementById('logo-fallback').style.display='flex'"
+                >
+                <div id="logo-fallback" class="hidden flex-col items-center justify-end pb-4 h-full">
+                    <h1 class="text-4xl font-extrabold text-plaque-blue tracking-tight">Plaque Lark</h1>
+                    <p class="text-sm text-gray-500 mt-1">Sifting city streets for ghosts</p>
+                </div>
+            </div>
+            
+            <!-- Right Action (Favorites) -->
+            <div class="w-10 flex justify-start z-10 self-start mt-6">
+                <button onclick="app.goFavorites()" class="p-2 text-gray-500 hover:text-red-500 transition-colors" aria-label="Favorites">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main App Container -->
+    <main id="app" class="max-w-2xl mx-auto px-4 pt-0 pb-6">
+        <!-- Dynamic Content Rendered Here -->
+    </main>
+
+    <!-- Bottom Navigation (filled by JS) -->
+    <nav id="bottom-nav"
+         class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200
+                shadow-[0_-4px_10px_rgba(0,0,0,0.04)] z-30">
+    </nav>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // --- Constants ---
+        const CITIES = [
+    {
+        name: 'London',
+        url: 'https://raw.githubusercontent.com/jameswroberts1-sketch/PlaqueLark/refs/heads/main/London_Heritage.json',
+        defaultLat: 51.5074,
+        defaultLng: -0.1278,
+        exampleAddress: 'Baker Street'
+    },
+    {
+        name: 'Manchester',
+        url: 'https://raw.githubusercontent.com/jameswroberts1-sketch/PlaqueLark/refs/heads/main/Manchester.json',
+        defaultLat: 53.4808,
+        defaultLng: -2.2426,
+        exampleAddress: "St Peter's Square"
+    }
+];
+        const STORAGE_KEY = 'plaque_explorer_saved_tours';
+        const MAX_TOUR_SIZE = 10;
+        const AUDIO_TRIGGER_DISTANCE = 0.0062; // ~10 meters in miles
+
+        // --- State ---
+        const state = {
+            view: 'HOME', // HOME, TOUR, FAVORITES, COLOURS, GUIDE
+            loading: false,
+            error: null,
+            cityIndex: 0,
+            locationMethod: 'GPS', // GPS, MANUAL
+            manualAddress: '',
+            radius: 1,
+            category: '',
+            stops: 5,
+            availableCategories: [],
+            candidatePlaques: [],
+            activeTour: [],
+            selectedForRemoval: new Set(),
+            isAutoPlay: false,
+            playedPlaques: new Set(), // IDs
+            userLocation: null,
+            watchId: null,
+            bioCache: {},
+            isPlanned: false,       // manual “plan for later” vs “start now”
+            startHint: ''           // e.g. “Baker Street station”
+        };
+
+        // --- Services: Geo ---
+        const Geo = {
+            calculateDistance: (lat1, lon1, lat2, lon2) => {
+                const toRad = (value) => (value * Math.PI) / 180;
+                const R = 3958.8; // Miles
+                const dLat = toRad(lat2 - lat1);
+                const dLon = toRad(lon2 - lon1);
+                const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                          Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(toRad(lat1)) * Math.cos(toRad(lat2));
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                return R * c;
+            },
+            getCurrentPosition: () => {
+                return new Promise((resolve, reject) => {
+                    if (!navigator.geolocation) reject('Geolocation not supported');
+                    else navigator.geolocation.getCurrentPosition(
+                        pos => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+                        err => reject(err)
+                    );
+                });
+            },
+            optimizeRoute: (startLoc, plaques) => {
+    if (plaques.length <= 2) return plaques;
+
+    // --- 1. Nearest neighbour initial route (your existing logic) ---
+    const pool = [...plaques];
+    const route = [];
+    let current = { latitude: startLoc.latitude, longitude: startLoc.longitude };
+
+    while (pool.length > 0) {
+        let nearestIdx = -1;
+        let minDist = Infinity;
+        for (let i = 0; i < pool.length; i++) {
+            const dist = Geo.calculateDistance(
+                current.latitude,
+                current.longitude,
+                pool[i].latitude,
+                pool[i].longitude
+            );
+            if (dist < minDist) {
+                minDist = dist;
+                nearestIdx = i;
+            }
+        }
+        const next = pool[nearestIdx];
+        route.push(next);
+        current = { latitude: next.latitude, longitude: next.longitude };
+        pool.splice(nearestIdx, 1);
+    }
+
+    // --- Helpers for 2-opt ---
+    const totalRouteDistance = (r) => {
+        let sum = 0;
+        let prev = { latitude: startLoc.latitude, longitude: startLoc.longitude };
+        for (const p of r) {
+            sum += Geo.calculateDistance(
+                prev.latitude,
+                prev.longitude,
+                p.latitude,
+                p.longitude
+            );
+            prev = p;
+        }
+        return sum;
+    };
+
+    const twoOptSwap = (r, i, k) => {
+        // route[0..i-1] + reversed[i..k] + route[k+1..end]
+        return [
+            ...r.slice(0, i),
+            ...r.slice(i, k + 1).reverse(),
+            ...r.slice(k + 1)
+        ];
+    };
+
+    // --- 2. 2-opt improvement loop ---
+    let improved = true;
+    let bestRoute = route;
+    let bestDistance = totalRouteDistance(bestRoute);
+
+    while (improved) {
+        improved = false;
+
+        for (let i = 0; i < bestRoute.length - 1; i++) {
+            for (let k = i + 1; k < bestRoute.length; k++) {
+                const newRoute = twoOptSwap(bestRoute, i, k);
+                const newDistance = totalRouteDistance(newRoute);
+
+                if (newDistance + 1e-9 < bestDistance) { // tiny epsilon to avoid float noise
+                    bestRoute = newRoute;
+                    bestDistance = newDistance;
+                    improved = true;
+                }
+            }
+        }
+    }
+
+    return bestRoute;
+},
+generateMapsPreviewUrl: (plaques) => {
+    if (!plaques.length) return '';
+
+    const baseUrl = "https://www.google.com/maps/dir/?api=1";
+
+    const getLoc = (p) => {
+        const hasCoords =
+            Number.isFinite(p.latitude) &&
+            Number.isFinite(p.longitude);
+
+        if (hasCoords) {
+            return `${p.latitude},${p.longitude}`;
+        }
+        return encodeURIComponent((p.address || '').trim());
+    };
+
+    const dest = getLoc(plaques[plaques.length - 1]);
+
+    let origin = '';
+    let waypointPlaques = [];
+
+    if (state.locationMethod === 'MANUAL') {
+        // “Planning ahead” – show a route local to the planned hub
+        origin = getLoc(plaques[0]);          // planned start area / first plaque
+        waypointPlaques = plaques.slice(1, -1);
+    } else {
+        // GPS mode – user is already in the city, so origin = where they are
+        if (state.userLocation) {
+            origin = `${state.userLocation.latitude},${state.userLocation.longitude}`;
+        }
+        waypointPlaques = plaques.slice(0, -1);
+    }
+
+    const waypoints = waypointPlaques.map(p => getLoc(p)).join('|');
+
+    let url = `${baseUrl}&destination=${dest}&travelmode=walking`;
+    if (origin) url += `&origin=${origin}`;
+    if (waypoints) url += `&waypoints=${waypoints}`;
+
+    return url;
+},
+
+generateMapsNavUrl: (plaques) => {
+    if (!plaques.length) return '';
+
+    const baseUrl = "https://www.google.com/maps/dir/?api=1";
+
+    const getLoc = (p) => {
+        const hasCoords =
+            Number.isFinite(p.latitude) &&
+            Number.isFinite(p.longitude);
+
+        if (hasCoords) {
+            return `${p.latitude},${p.longitude}`;
+        }
+        return encodeURIComponent((p.address || '').trim());
+    };
+
+    const dest = getLoc(plaques[plaques.length - 1]);
+    const waypointPlaques = plaques.slice(0, -1);
+    const waypoints = waypointPlaques.map(p => getLoc(p)).join('|');
+
+    // IMPORTANT: no origin here → Google uses “Your location”
+    let url = `${baseUrl}&destination=${dest}&travelmode=walking`;
+    if (waypoints) url += `&waypoints=${waypoints}`;
+
+    return url;
+}
+        };
+
+        // --- Services: API ---
+        const Api = {
+            fetchPlaques: async (url) => {
+                const res = await fetch(url);
+                const data = await res.json();
+                return data.map((item, idx) => ({
+    id: String(item.id ?? `plaque-${idx}`),   // 🔧 force string IDs
+    title: item.title || 'Unknown Title',
+    category: item.lead_subject_primary_role || item.category || '',
+    latitude: parseFloat(item.latitude),
+    longitude: parseFloat(item.longitude),
+    address: item.address || '',
+    summary: item.subjects || item.summary || item.inscription || item.description || 'No description available.',
+    wikipediaUrl: item.lead_subject_wikipedia || null
+}));
+            },
+            fetchWikiBio: async (url) => {
+                if (!url) return '';
+                if (state.bioCache[url]) return state.bioCache[url];
+                try {
+                    const title = url.split('/').pop();
+                    const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${title}`);
+                    const json = await res.json();
+                    const extract = json.extract || '';
+                    state.bioCache[url] = extract;
+                    return extract;
+                } catch (e) { return ''; }
+            },
+            geocode: async (query) => {
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+                const data = await res.json();
+                if (data && data.length) return { latitude: parseFloat(data[0].lat), longitude: parseFloat(data[0].lon) };
+                throw new Error('Location not found');
+            }
+        };
+
+        // --- Icons (SVG Strings) ---
+        const Icons = {
+            Refresh: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>`,
+            Speaker: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" /></svg>`,
+            SpeakerWave: (animate) => `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 ${animate ? 'animate-pulse' : ''}"><path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5" /></svg>`,
+            MapPin: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" /></svg>`,
+            Heart: (filled) => `<svg xmlns="http://www.w3.org/2000/svg" fill="${filled ? 'currentColor' : 'none'}" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" /></svg>`,
+            Trash: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>`,
+            ArrowLeft: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>`,
+            Play: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clip-rule="evenodd" /></svg>`,
+            Flag: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M3 2.25a.75.75 0 0 1 .75.75v.54l1.838-.46a9.75 9.75 0 0 1 6.725.738l.108.054a8.25 8.25 0 0 0 5.58.652l3.109-.732a.75.75 0 0 1 .917.81 47.784 47.784 0 0 0 .005 10.337.75.75 0 0 1-.574.812l-3.114.733a9.75 9.75 0 0 1-6.594-.158l-.108-.054a8.25 8.25 0 0 0-5.69-.625l-2.202.55V21a.75.75 0 0 1-1.5 0V3A.75.75 0 0 1 3 2.25Z" clip-rule="evenodd" /></svg>`,
+
+            HomeTab: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="1.5"
+                            class="w-5 h-5">
+                          <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M2.25 12l9.193-8.308a.75.75 0 0 1 1.014 0L21.75 12M4.5 10.5v9.75A1.5 1.5 0 0 0 6 21.75h12a1.5 1.5 0 0 0 1.5-1.5v-9.75" />
+                       </svg>`,
+
+            GuideTab: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                             fill="none" stroke="currentColor" stroke-width="1.5"
+                             class="w-5 h-5">
+                           <path stroke-linecap="round" stroke-linejoin="round"
+                                 d="M4.5 5.25A2.25 2.25 0 0 1 6.75 3h10.5A2.25 2.25 0 0 1 19.5 5.25v13.5L15 16.5l-4.5 2.25L6 16.5l-1.5 2.25z" />
+                       </svg>`,
+
+            ColoursTab: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                               fill="none" stroke="currentColor" stroke-width="1.5"
+                               class="w-5 h-5">
+                             <path stroke-linecap="round" stroke-linejoin="round"
+                                   d="M15.75 3.75a6.75 6.75 0 0 1 0 13.5h-1.086a1.5 1.5 0 0 0-1.06.44l-2.707 2.707A.75.75 0 0 1 9 19.69v-2.44a1.5 1.5 0 0 0-1.5-1.5A4.5 4.5 0 0 1 3 11.25 7.5 7.5 0 0 1 10.5 3.75h5.25z" />
+                       </svg>`,
+
+            FavsTab: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="1.5"
+                            class="w-5 h-5">
+                          <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M11.48 3.499a.75.75 0 0 1 1.04 0l2.122 2.122 3.004.437a.75.75 0 0 1 .416 1.28l-2.173 2.119.513 3a.75.75 0 0 1-1.088.791L12 12.97l-2.714 1.427a.75.75 0 0 1-1.088-.79l.513-3-2.173-2.12a.75.75 0 0 1 .416-1.279l3.004-.437z" />
+                       </svg>`,
+        };
+
+        // --- Application Controller ---
+        const app = {
+            init: () => {
+                app.loadCategories();
+                app.render();
+            },
+
+            // Generic view setter (we'll use this for the bottom nav later)
+            setView: (view) => {
+                state.view = view;
+                app.stopAudioWatch();
+                app.render();
+            },
+
+            // View Switchers
+            goHome: () => {
+                // “New Search” – clear current tour and go back to generator
+                state.view = 'HOME';
+                state.activeTour = [];
+                state.selectedForRemoval = new Set();
+                app.stopAudioWatch();
+                app.render();
+            },
+
+            goFavorites: () => {
+                state.view = 'FAVORITES';
+                app.stopAudioWatch();
+                app.render();
+            },
+
+            // Update State Actions
+            setCity: (idx) => { 
+                state.cityIndex = idx; 
+                state.category = ''; 
+                app.loadCategories(); 
+                app.render(); 
+            },
+            setMethod: (method) => { state.locationMethod = method; app.render(); },
+            setAddress: (val) => { state.manualAddress = val; }, // Bound via oninput
+            setRadius: (val) => { state.radius = parseFloat(val); document.getElementById('radius-val').innerText = val + ' mi'; },
+            setStops: (val) => { state.stops = parseInt(val); document.getElementById('stops-val').innerText = val; },
+            setCategory: (val) => { state.category = val; },
+
+            // Logic: Load Categories for Autocomplete
+            loadCategories: async () => {
+                const city = CITIES[state.cityIndex];
+                try {
+                    const plaques = await Api.fetchPlaques(city.url);
+                    const cats = new Set(plaques.map(p => p.category).filter(c => c && c.trim()));
+                    state.availableCategories = Array.from(cats).sort();
+                    // Re-render only datalist if on home screen
+                    if(state.view === 'HOME') app.render(); 
+                } catch(e) { console.error(e); }
+            },
+
+            // Logic: Generate Tour
+            generateTour: async (e) => {
+                if (e) e.preventDefault();
+                state.loading = true;
+                state.error = null;
+                app.render();
+
+                const city = CITIES[state.cityIndex];
+                try {
+                    // 1. Location
+                    let startLoc;
+                    if (state.locationMethod === 'GPS') {
+                        startLoc = await Geo.getCurrentPosition();
+                    } else {
+                        const q = state.manualAddress.toLowerCase().includes(city.name.toLowerCase()) 
+                            ? state.manualAddress : `${state.manualAddress}, ${city.name}`;
+                        startLoc = await Api.geocode(q);
+                    }
+                    state.userLocation = startLoc;
+
+                    // 2. Fetch & Filter
+                    const all = await Api.fetchPlaques(city.url);
+                    let filtered = all;
+                    if (state.category.trim()) {
+                        const term = state.category.toLowerCase().trim();
+                        filtered = all.filter(p => 
+                            (p.category && p.category.toLowerCase().includes(term)) ||
+                            (p.title && p.title.toLowerCase().includes(term)) ||
+                            (p.summary && p.summary.toLowerCase().includes(term))
+                        );
+                    }
+
+                    const nearby = filtered.filter(p => Geo.calculateDistance(startLoc.latitude, startLoc.longitude, p.latitude, p.longitude) <= state.radius);
+                    
+                    if (nearby.length === 0) throw new Error(`No plaques found within ${state.radius} miles.`);
+
+                    // 3. Select & Optimize
+                    const shuffled = [...nearby].sort(() => 0.5 - Math.random());
+                    let selected = shuffled.slice(0, state.stops);
+                    selected = Geo.optimizeRoute(startLoc, selected);
+
+                    state.isPlanned = (state.locationMethod === 'MANUAL');
+                    state.startHint = state.locationMethod === 'MANUAL'
+                        ? (state.manualAddress || CITIES[state.cityIndex].exampleAddress || '')
+                        : 'Your current location';
+                    state.candidatePlaques = nearby;
+                    state.activeTour = selected;
+                    state.selectedForRemoval = new Set();
+                    state.playedPlaques = new Set();
+                    state.view = 'TOUR';
+                } catch (err) {
+                    state.error = err.message || 'Error generating tour';
+                } finally {
+                    state.loading = false;
+                    app.render();
+                }
+            },
+
+            // Logic: Regenerate (Swap)
+            toggleRemove: (id, checked) => {
+                if (checked) state.selectedForRemoval.add(id);
+                else state.selectedForRemoval.delete(id);
+                // Update checkbox visually without full re-render for speed
+                const el = document.getElementById(`lbl-${id}`);
+                if (el) el.className = `text-xs font-bold uppercase ${checked ? 'text-red-600' : 'text-gray-400 group-hover:text-gray-600'}`;
+                const txt = document.getElementById(`txt-${id}`);
+                if (txt) txt.innerText = checked ? 'Remove' : 'Keep';
+                const card = document.getElementById(`card-${id}`);
+                if (card) card.className = `bg-white rounded-xl shadow-md overflow-hidden border-l-4 mb-4 relative group transition-all ${checked ? 'border-red-500 bg-red-50' : 'border-plaque-blue'}`;
+                
+                app.updateActionBar();
+            },
+
+            regenerateSelected: () => {
+    const idsToRemove = Array.from(state.selectedForRemoval).map(String);
+    if (!idsToRemove.length) return;
+
+    const removedSet = new Set(idsToRemove);
+    const kept = state.activeTour.filter(p => !removedSet.has(String(p.id)));
+
+    const keptIds = new Set(kept.map(p => String(p.id)));
+    const pool = state.candidatePlaques.filter(
+        p => !keptIds.has(String(p.id)) && !removedSet.has(String(p.id))
+    );
+
+    const needed = state.stops - kept.length;
+
+    if (needed > 0 && pool.length < needed) {
+        alert('Not enough alternative locations nearby to replace all selected plaques. Try reducing the number selected or increasing your radius.');
+        return;
+    }
+
+    const replacements = pool.sort(() => 0.5 - Math.random()).slice(0, needed);
+    let newTour = [...kept, ...replacements];
+
+    if (state.userLocation) {
+        newTour = Geo.optimizeRoute(state.userLocation, newTour);
+    }
+
+    state.activeTour = newTour;
+    state.selectedForRemoval = new Set();
+    app.render();
+},
+
+   removeSelectedNoReplacement: () => {
+    const idsToRemove = Array.from(state.selectedForRemoval).map(String);
+    if (!idsToRemove.length) return;
+
+    const removedSet = new Set(idsToRemove);
+
+    let newTour = state.activeTour.filter(p => !removedSet.has(String(p.id)));
+
+    state.stops = newTour.length;
+
+    if (state.userLocation && newTour.length > 1) {
+        newTour = Geo.optimizeRoute(state.userLocation, newTour);
+    }
+
+    state.activeTour = newTour;
+    state.selectedForRemoval = new Set();
+    app.render();
+},         
+
+            // Logic: Audio
+    speak: (plaqueId) => {
+    const plaque = state.activeTour.find(p => p.id === plaqueId);
+    if (!plaque) return;
+
+    if (!('speechSynthesis' in window)) {
+        alert('Spoken audio is not supported on this device/browser.');
+        return;
+    }
+
+    // Stop anything currently speaking
+    window.speechSynthesis.cancel();
+
+    // Build the text from data we already have (no async)
+    const baseText = `${plaque.title}. ${plaque.summary || ''}`;
+    const text = baseText.trim();
+    if (!text) {
+        alert('No description available to read for this plaque.');
+        return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+
+    // Optional: tweak how it sounds
+    utterance.rate = 0.95;   // slightly slower
+    utterance.pitch = 1.05;  // a touch brighter
+    utterance.volume = 1.0;
+
+    // (Optional) basic logging if you open DevTools
+    utterance.onstart = () => console.log('Speech started');
+    utterance.onend = () => console.log('Speech ended');
+    utterance.onerror = (e) => console.error('Speech error', e);
+
+    // 🔊 Speak immediately – still within the click event
+    window.speechSynthesis.speak(utterance);
+
+    // 🔎 Fetch wiki bio *after* starting speech, just to update the card text
+    if (plaque.wikipediaUrl) {
+        Api.fetchWikiBio(plaque.wikipediaUrl).then(bio => {
+            if (!bio) return;
+            const bioEl = document.getElementById(`bio-${plaque.id}`);
+            if (bioEl) bioEl.innerText = bio.substring(0, 300) + '...';
+            const link = document.getElementById(`link-${plaque.id}`);
+            if (link) link.style.display = 'inline';
+        }).catch(err => console.error('Wiki bio fetch error', err));
+    }
+},
+
+            toggleAutoPlay: () => {
+                state.isAutoPlay = !state.isAutoPlay;
+                if (state.isAutoPlay) app.startAudioWatch();
+                else app.stopAudioWatch();
+                app.render();
+            },
+
+            startAudioWatch: () => {
+                if (!navigator.geolocation) return;
+                app.stopAudioWatch();
+                state.watchId = navigator.geolocation.watchPosition(pos => {
+                    const uLat = pos.coords.latitude;
+                    const uLng = pos.coords.longitude;
+                    state.activeTour.forEach(p => {
+                        if (state.playedPlaques.has(p.id)) return;
+                        const dist = Geo.calculateDistance(uLat, uLng, p.latitude, p.longitude);
+                        if (dist <= AUDIO_TRIGGER_DISTANCE) {
+                            state.playedPlaques.add(p.id);
+                            app.speak(p.id);
+                        }
+                    });
+                }, err => console.error(err), { enableHighAccuracy: true });
+            },
+
+            stopAudioWatch: () => {
+                if (state.watchId !== null) {
+                    navigator.geolocation.clearWatch(state.watchId);
+                    state.watchId = null;
+                }
+            },
+
+            // Logic: Favorites
+            saveTour: () => {
+    if (!state.activeTour.length) return;
+
+    const cityName = CITIES[state.cityIndex]?.name || 'Tour';
+
+    // Sensible default name
+    const defaultName = state.isPlanned
+        ? `${cityName} – ${state.startHint || 'planned walk'}`
+        : `${cityName} walk`;
+
+    const name = (prompt('Give this tour a name:', defaultName) || defaultName).trim();
+
+    const tour = {
+        id: Date.now().toString(),
+        name,
+        date: new Date().toISOString(),
+        cityName,
+        plaques: state.activeTour,
+        isPlanned: state.isPlanned,
+        startHint: state.startHint
+    };
+
+    const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([tour, ...existing]));
+    alert('Tour saved!');
+},
+
+    loadTour: (id) => {
+    const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    const tour = existing.find(t => t.id === id);
+    if (tour) {
+        state.activeTour = tour.plaques;
+        state.candidatePlaques = []; // Can't regenerate properly on saved
+        state.stops = tour.plaques.length;
+        state.view = 'TOUR';
+
+        // restore planning info
+        state.isPlanned = !!tour.isPlanned;
+        state.startHint = tour.startHint || '';
+
+        app.render();
+    }
+},
+
+            deleteTour: (id, e) => {
+                e.stopPropagation();
+                const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+                const updated = existing.filter(t => t.id !== id);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+                app.render();
+            },
+
+            // --- Render Functions ---
+
+updateActionBar: () => {
+    const bar = document.getElementById('action-bar');
+    if (!bar) return;
+
+    const count = state.selectedForRemoval.size;
+    const canSwap = state.candidatePlaques.length > state.activeTour.length;
+    const isManualPlanningContext = state.view === 'TOUR' && state.locationMethod === 'MANUAL';
+
+    if (count > 0) {
+        // Some cards are selected → show regenerate / remove controls
+        bar.innerHTML = `
+            <div class="max-w-md mx-auto w-full space-y-2">
+                <button
+                    onclick="app.regenerateSelected()"
+                    ${!canSwap ? 'disabled' : ''}
+                    class="w-full bg-red-600 ${canSwap ? 'animate-bounce-short' : ''} hover:bg-red-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 shadow-md transition-colors disabled:opacity-60"
+                >
+                    ${Icons.Refresh} Regenerate ${count} Selected
+                </button>
+                ${!canSwap ? '<p class="text-xs text-red-500 text-center">No alternative plaques nearby to swap in.</p>' : ''}
+                <button
+                    onclick="app.removeSelectedNoReplacement()"
+                    class="w-full bg-white border border-red-500 text-red-600 font-bold py-3 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors"
+                >
+                    ${Icons.Trash} Remove Selected from Tour
+                </button>
+            </div>
+        `;
+    } else {
+        // No cards selected – map + save controls
+        const navUrl = Geo.generateMapsNavUrl(state.activeTour);
+        const previewUrl = isManualPlanningContext
+            ? Geo.generateMapsPreviewUrl(state.activeTour)
+            : null;
+
+        const previewButtonHtml = previewUrl
+            ? `
+                <a
+                    href="${previewUrl}"
+                    target="_blank"
+                    class="w-full bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-bold py-3 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors"
+                >
+                    ${Icons.MapPin} Preview route near planned start
+                </a>
+            `
+            : '';
+
+        bar.innerHTML = `
+            <div class="max-w-md mx-auto w-full space-y-2">
+                <a
+                    href="${navUrl}"
+                    target="_blank"
+                    class="w-full bg-blue-100 hover:bg-blue-200 text-plaque-blue font-bold py-3 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors"
+                >
+                    ${Icons.MapPin} Start in Google Maps
+                </a>
+                ${previewButtonHtml}
+                <button
+                    onclick="app.saveTour()"
+                    class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 shadow-md transition-colors"
+                >
+                    ${Icons.Heart(true)} Save to Favorites
+                </button>
+            </div>
+        `;
+    }
+},
+
+            render: () => {
+    const root = document.getElementById('app');
+    let html = '';
+    if (state.error) {
+        html += `
+        <div class="mb-6 mt-4 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
+            <div class="flex">
+                <div class="ml-3">
+                    <p class="text-sm text-red-700">${state.error}</p>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    if (state.view === 'HOME') {
+        html += app.renderHome();
+    } else if (state.view === 'TOUR') {
+        html += app.renderTour();
+    } else if (state.view === 'FAVORITES') {
+        html += app.renderFavorites();
+    } else if (state.view === 'GUIDE') {
+        html += app.renderGuide();
+    } else if (state.view === 'COLOURS') {
+        html += app.renderColours();
+    }
+
+        root.innerHTML = html;
+
+    if (state.view === 'TOUR') {
+        // Ensure Maps + Save action bar is rendered
+        app.updateActionBar();
+
+        // Existing bio prefetch logic
+        state.activeTour.forEach(p => {
+            if (p.wikipediaUrl) {
+                Api.fetchWikiBio(p.wikipediaUrl).then(bio => {
+                    const el = document.getElementById(`bio-${p.id}`);
+                    if (el) {
+                        el.innerText = bio.substring(0, 300) + '...';
+                        const link = document.getElementById(`link-${p.id}`);
+                        if (link) link.style.display = 'inline';
+                    }
+                });
+            }
+        });
+    }
+
+    // Always refresh bottom navigation
+    app.renderNav();
+},
+
+            renderNav: () => {
+                const nav = document.getElementById('bottom-nav');
+                if (!nav) return;
+
+                // Treat TOUR as part of the "New tour" tab for highlighting
+                const logicalView =
+                    state.view === 'TOUR' ? 'HOME' : state.view;
+
+                const tabClass = (view) =>
+                    'flex flex-col items-center flex-1 py-2 text-xs font-medium transition-colors ' +
+                    (logicalView === view
+                        ? 'text-plaque-blue'
+                        : 'text-gray-400');
+
+                nav.innerHTML = `
+                    <div class="max-w-2xl mx-auto px-4">
+                        <div class="flex justify-between items-center">
+                            <button onclick="app.setView('HOME')" class="${tabClass('HOME')}">
+                                <span class="mb-1">${Icons.HomeTab}</span>
+                                <span>New tour</span>
+                            </button>
+                            <button onclick="app.setView('GUIDE')" class="${tabClass('GUIDE')}">
+                                <span class="mb-1">${Icons.GuideTab}</span>
+                                <span>Guide</span>
+                            </button>
+                            <button onclick="app.setView('COLOURS')" class="${tabClass('COLOURS')}">
+                                <span class="mb-1">${Icons.ColoursTab}</span>
+                                <span>Plaques</span>
+                            </button>
+                            <button onclick="app.setView('FAVORITES')" class="${tabClass('FAVORITES')}">
+                                <span class="mb-1">${Icons.FavsTab}</span>
+                                <span>Saved</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            },
+    
+            renderHome: () => {
+                return `
+                <div class="w-full max-w-md mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 mt-0">
+                    <form onsubmit="app.generateTour(event)" class="p-6 space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Select City</label>
+                            <select onchange="app.setCity(this.selectedIndex)" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plaque-blue bg-white">
+                                ${CITIES.map((c, i) => `<option value="${i}" ${i === state.cityIndex ? 'selected' : ''}>${c.name}</option>`).join('')}
+                            </select>
+                        </div>
+
+<div>
+    <label class="block text-sm font-medium text-gray-700 mb-2">Start Location</label>
+    <div class="flex gap-2 mb-3">
+        <button
+            type="button"
+            onclick="app.setMethod('GPS')"
+            class="flex-1 py-2 px-3 text-xs font-medium rounded-2xl transition-all shadow-sm ${
+                state.locationMethod === 'GPS'
+                    ? 'bg-plaque-blue text-white'
+                    : 'bg-red-600 text-white'
+            }"
+        >
+            <span class="block text-sm font-semibold leading-tight">
+                Start now
+            </span>
+            <span class="block text-[0.7rem] leading-tight opacity-80">
+                Current location
+            </span>
+        </button>
+
+        <button
+            type="button"
+            onclick="app.setMethod('MANUAL')"
+            class="flex-1 py-2 px-3 text-xs font-medium rounded-2xl transition-all shadow-sm ${
+                state.locationMethod === 'MANUAL'
+                    ? 'bg-plaque-blue text-white'
+                    : 'bg-red-600 text-white'
+            }"
+        >
+            <span class="block text-sm font-semibold leading-tight">
+                Plan for later
+            </span>
+            <span class="block text-[0.7rem] leading-tight opacity-80">
+                Choose start point
+            </span>
+        </button>
+    </div>
+
+    ${state.locationMethod === 'MANUAL' ? `
+        <input
+            type="text"
+            placeholder="e.g., ${CITIES[state.cityIndex].exampleAddress || 'Baker Street'}"
+            value="${state.manualAddress}"
+            oninput="app.setAddress(this.value)"
+            required
+            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plaque-blue outline-none"
+        >
+    ` : ''}
+
+    ${
+        state.locationMethod === 'GPS'
+            ? `<p class="mt-2 text-xs text-gray-500">
+                    Use this when you’re already out in the city and want your walk
+                    to begin from where you’re standing right now.
+               </p>`
+            : `<p class="mt-2 text-xs text-gray-500">
+                    Use this to <strong>plan a tour for the future</strong>. When you’re
+                    ready to do it, make your way towards this address or landmark,
+                    open your saved tour in PlaqueLark, and start the route from there.
+               </p>`
+    }
+</div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Category / Role (Optional)</label>
+                            <input list="cats" type="text" placeholder="e.g. Musician, Poet" value="${state.category}" oninput="app.setCategory(this.value)" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plaque-blue outline-none">
+                            <datalist id="cats">
+                                ${state.availableCategories.map(c => `<option value="${c}">`).join('')}
+                            </datalist>
+                        </div>
+
+                        <div class="flex gap-4">
+                            <div class="flex-1">
+                                <div class="flex justify-between items-center mb-2">
+                                    <label class="text-sm font-medium text-gray-700">Radius</label>
+                                    <span id="radius-val" class="text-sm font-bold text-plaque-blue">${state.radius} mi</span>
+                                </div>
+                                <input type="range" min="0.2" max="5" step="0.1" value="${state.radius}" oninput="app.setRadius(this.value)" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-plaque-blue">
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex justify-between items-center mb-2">
+                                    <label class="text-sm font-medium text-gray-700">Stops</label>
+                                    <span id="stops-val" class="text-sm font-bold text-plaque-blue">${state.stops}</span>
+                                </div>
+                                <input type="range" min="1" max="${MAX_TOUR_SIZE}" step="1" value="${state.stops}" oninput="app.setStops(this.value)" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-plaque-blue">
+                            </div>
+                        </div>
+
+                        <button type="submit" ${state.loading ? 'disabled' : ''} class="w-full bg-plaque-blue hover:bg-blue-900 text-white font-bold py-4 rounded-xl shadow-lg transition disabled:opacity-70 flex justify-center items-center">
+                            ${state.loading ? 'Generating...' : 'Generate Walking Tour'}
+                        </button>
+                    </form>
+                </div>
+                <div class="mt-8 text-center text-gray-400 text-sm"><p>Discover historical markers in London and beyond.</p></div>
+                `;
+            },
+
+            renderTour: () => {
+                const cityName = CITIES[state.cityIndex]?.name || 'Saved';
+                
+                return `
+                <div class="pb-32">
+                    <div class="flex items-center justify-between mb-4">
+                        <button onclick="app.goHome()" class="flex items-center text-gray-600 hover:text-plaque-blue font-medium transition-colors">
+                            ${Icons.ArrowLeft} <span class="ml-1">New Search</span>
+                        </button>
+                        <div class="text-right">
+                            <h2 class="text-lg font-bold text-gray-900">${cityName} Tour</h2>
+                            <p class="text-xs text-gray-500">${state.activeTour.length} Locations</p>
+                        </div>
+                    </div>
+
+                    ${state.isPlanned && state.startHint ? `
+    <div class="mb-4 bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded-r-lg text-xs text-gray-800">
+        <p class="font-semibold mb-1">Planned tour</p>
+        <p>
+            This tour was set up around
+            <span class="font-semibold">${state.startHint}</span>.
+            When you’re ready to walk it, make your way towards that area,
+            then tap <strong>“Start in Google Maps”</strong> below to
+            start from where you are.
+        </p>
+    </div>
+` : ''}
+
+                    <div class="mb-6 flex justify-end">
+                        <button onclick="app.toggleAutoPlay()" class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm border ${state.isAutoPlay ? 'bg-plaque-blue text-white border-plaque-blue' : 'bg-white text-gray-500 border-gray-300'}">
+                            ${Icons.SpeakerWave(state.isAutoPlay)} Auto Guide: ${state.isAutoPlay ? 'ON' : 'OFF'}
+                        </button>
+                    </div>
+
+                    <div class="space-y-4">
+                        ${state.activeTour.map((p, i) => app.renderCard(p, i, state.activeTour.length)).join('')}
+                    </div>
+
+                    <div id="action-bar" class="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-[0_-5px_10px_rgba(0,0,0,0.05)] z-10 flex flex-col gap-3">
+                        ${/* Initial render of action bar */ ''}
+                    </div>
+                </div>
+                `;
+            },
+
+            renderCard: (plaque, index, total) => {
+                const isStart = index === 0;
+                const isEnd = index === total - 1;
+                const isSel = state.selectedForRemoval.has(plaque.id);
+                
+                let badge = '', label = '', bg = '';
+                if (isStart) { badge = Icons.Play; label = 'Starting Point'; bg = 'bg-green-600'; }
+                else if (isEnd) { badge = Icons.Flag; label = 'Final Stop'; bg = 'bg-gray-800'; }
+                else { badge = String.fromCharCode(65 + (index - 1)); label = `Stop ${index}`; bg = 'bg-plaque-blue'; }
+
+                return `
+                <div id="card-${plaque.id}" class="bg-white rounded-xl shadow-md overflow-hidden border-l-4 mb-4 relative group transition-all ${isSel ? 'border-red-500 bg-red-50' : 'border-plaque-blue'}">
+                    <div class="p-5">
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="flex gap-2 items-center">
+                                <div class="${bg} text-white w-8 h-8 flex items-center justify-center rounded-full font-bold shadow-sm flex-shrink-0">${badge}</div>
+                                <div class="flex flex-col">
+                                    <span class="text-xs text-gray-400 font-mono uppercase tracking-wide">${label}</span>
+                                    ${plaque.category ? `<span class="text-xs text-gray-500 font-bold bg-gray-100 px-2 py-0.5 rounded-full inline-block w-max">${plaque.category}</span>` : ''}
+                                </div>
+                            </div>
+                            <label class="flex items-center gap-2 cursor-pointer select-none">
+                                <span id="txt-${plaque.id}" class="text-xs font-bold uppercase ${isSel ? 'text-red-600' : 'text-gray-400 group-hover:text-gray-600'}">${isSel ? 'Remove' : 'Keep'}</span>
+                                <input type="checkbox" ${isSel ? 'checked' : ''} onchange="app.toggleRemove('${plaque.id}', this.checked)" class="w-5 h-5 text-red-600 border-gray-300 rounded focus:ring-red-500">
+                            </label>
+                        </div>
+
+                        <h3 class="text-lg font-bold text-gray-900 leading-tight mb-2 mt-2 pr-2">${plaque.title}</h3>
+                        <div class="flex items-start text-gray-500 text-sm mb-3">
+                            <span class="mr-1 mt-0.5">${Icons.MapPin}</span>
+                            <span class="font-medium">${plaque.address}</span>
+                        </div>
+                        <p class="text-gray-600 text-sm leading-relaxed mb-4">${plaque.summary}</p>
+
+                        ${plaque.wikipediaUrl ? `
+                        <div class="mb-4 bg-gray-50 p-3 rounded-lg border border-gray-100 text-sm">
+                            <p class="text-xs font-bold text-gray-400 mb-1">BIOGRAPHY SYNOPSIS</p>
+                            <p class="text-gray-700 leading-relaxed text-xs">
+                                <span id="bio-${plaque.id}">Loading synopsis...</span>
+                                <a id="link-${plaque.id}" href="${plaque.wikipediaUrl}" target="_blank" style="display:none" class="text-plaque-blue hover:underline ml-1 font-medium">Read more</a>
+                            </p>
+                        </div>` : ''}
+
+                        <div class="flex items-center gap-3 border-t border-gray-100 pt-3">
+                            <button onclick="app.speak('${plaque.id}')" class="flex-1 flex items-center justify-center gap-2 py-2 px-3 bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-plaque-blue rounded-lg text-sm font-medium transition-colors">
+                                ${Icons.Speaker} Listen
+                            </button>
+                        </div>
+                    </div>
+                </div>`;
+            },
+
+            renderFavorites: () => {
+                const tours = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+                return `
+                <div class="h-full">
+                    <div class="flex items-center mb-6">
+                        <button onclick="app.goHome()" class="p-2 -ml-2 text-gray-600 hover:text-plaque-blue">${Icons.ArrowLeft}</button>
+                        <h2 class="text-2xl font-bold text-gray-900 ml-2">My Saved Tours</h2>
+                    </div>
+                    ${tours.length === 0 ? `
+                        <div class="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
+                            <p class="text-gray-500 mb-4">No saved tours yet.</p>
+                            <button onclick="app.goHome()" class="text-plaque-blue font-medium hover:underline">Create your first tour</button>
+                        </div>
+                    ` : `
+                        <div class="space-y-4">
+                            ${tours.map(tour => `
+                            <div onclick="app.loadTour('${tour.id}')" class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:border-plaque-blue hover:shadow-md transition-all cursor-pointer group relative">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <h3 class="font-bold text-lg text-gray-800 group-hover:text-plaque-blue">
+    ${tour.name || `${tour.cityName} walk`}
+</h3>
+<p class="text-xs text-gray-500 mt-1">
+    ${tour.isPlanned
+        ? `Planned tour – start near: ${tour.startHint || 'chosen address'}`
+        : 'Recorded from your current location'}
+</p>
+<p class="text-xs text-gray-400 mt-1">
+    Saved on ${new Date(tour.date).toLocaleDateString()}
+</p>
+                                        <div class="mt-3 flex gap-1">
+                                            ${tour.plaques.slice(0, 3).map(() => `<div class="w-2 h-2 rounded-full bg-gray-300 group-hover:bg-plaque-blue"></div>`).join('')}
+                                            ${tour.plaques.length > 3 ? `<span class="text-xs text-gray-400 ml-1">+${tour.plaques.length - 3}</span>` : ''}
+                                        </div>
+                                    </div>
+                                    <button onclick="app.deleteTour('${tour.id}', event)" class="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors z-10">
+                                        ${Icons.Trash}
+                                    </button>
+                                </div>
+                            </div>
+                            `).join('')}
+                        </div>
+                    `}
+                </div>`;
+            },
+    
+            renderGuide: () => {
+                return `
+                <div class="max-w-md mx-auto bg-white rounded-2xl shadow-md p-6 space-y-4 mt-4">
+                    <h2 class="text-xl font-bold text-gray-900">How PlaqueLark works</h2>
+                    <p class="text-sm text-gray-700">
+                        PlaqueLark helps you build short, walkable tours of historic plaques
+                        around a starting point you choose.
+                    </p>
+
+                    <h3 class="text-sm font-semibold text-gray-900 mt-3">1. Pick a city</h3>
+                    <p class="text-sm text-gray-700">
+                        Choose from the cities in the list. Each city has its own set of
+                        plaques and suggested example streets you can search around.
+                    </p>
+
+                    <h3 class="text-sm font-semibold text-gray-900 mt-3">2. Choose where to start</h3>
+<p class="text-sm text-gray-700">
+    <strong>Start now (Current location)</strong> is ideal when you are already out
+    in the city and want the tour to begin where you are standing.
+    <br/><br/>
+    <strong>Plan for later (Address)</strong> is useful when you are planning
+    ahead, meeting friends somewhere specific, or want to centre the walk
+    on a station, square, or landmark.
+</p>
+
+                    <h3 class="text-sm font-semibold text-gray-900 mt-3">3. Fine-tune your walk</h3>
+                    <p class="text-sm text-gray-700">
+                        Use the <strong>Radius</strong> slider to decide how far PlaqueLark
+                        should look for plaques around your starting point, and
+                        <strong>Stops</strong> to choose how many plaques you’d like to visit.
+                        You can also type a <strong>Category / Role</strong> such as
+                        “musician”, “writer” or “scientist” if you want a themed walk.
+                    </p>
+
+                    <h3 class="text-sm font-semibold text-gray-900 mt-3">4. Explore and tweak</h3>
+                    <p class="text-sm text-gray-700">
+                        Tap <strong>Generate Walking Tour</strong> to see your route.
+                        You can mark any stop as <strong>Remove</strong> to swap it for
+                        another nearby plaque, or remove it altogether if you want a shorter tour.
+                    </p>
+
+                    <h3 class="text-sm font-semibold text-gray-900 mt-3">5. Walk the route</h3>
+<p class="text-sm text-gray-700">
+    Use the cards to read about each plaque, tap
+    <strong>Listen</strong> for spoken audio, and use
+    <strong>Start in Google Maps</strong> for turn-by-turn directions from
+    wherever you are. If you planned a tour around an address, you can also
+    use <strong>Preview route near planned start</strong> to see how long
+    the walk looks from that area.
+</p>
+                </div>
+                `;
+            },
+
+            renderColours: () => {
+                return `
+                <div class="max-w-md mx-auto bg-white rounded-2xl shadow-md p-6 space-y-4 mt-4">
+                    <h2 class="text-xl font-bold text-gray-900">Understanding plaque colours</h2>
+                    <p class="text-sm text-gray-700">
+                        Different organisations use different coloured plaques to mark
+                        people, events and buildings of interest. Colours vary by city, but
+                        this rough guide helps you make sense of what you see.
+                    </p>
+
+                    <div class="space-y-3 text-sm text-gray-700">
+                        <div>
+                            <h3 class="font-semibold text-plaque-blue">Blue plaques</h3>
+                            <p>
+                                Often used for nationally significant figures or events.
+                                In London, the classic blue plaque is usually associated
+                                with English Heritage.
+                            </p>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-green-700">Green and other local colours</h3>
+                            <p>
+                                Many boroughs and local societies use their own colours
+                                (green, maroon, brown, black, and others) to celebrate
+                                people and stories that matter locally rather than nationally.
+                            </p>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900">The details matter most</h3>
+                            <p>
+                                Regardless of colour, the lettering on the plaque tells you
+                                who or what is being commemorated, and usually why that place
+                                was chosen – a home, workplace, meeting point or key event.
+                            </p>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-gray-900">PlaqueLark’s role</h3>
+                            <p>
+                                PlaqueLark doesn’t change or standardise colours – it simply
+                                helps you find interesting plaques nearby and string them
+                                together into a walkable story.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                `;
+            }
+        };
+
+        // Initialize App
+        app.init();
+    </script>
+</body>
+</html>
