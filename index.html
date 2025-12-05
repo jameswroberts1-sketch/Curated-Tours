@@ -148,6 +148,11 @@ const state = {
             optimizeRoute: (startLoc, plaques) => {
     if (plaques.length <= 2) return plaques;
 
+                const hasAllCoords = plaques.every(p =>
+        Number.isFinite(p.latitude) && Number.isFinite(p.longitude)
+    );
+    if (!hasAllCoords) return plaques;
+
     // --- 1. Nearest neighbour initial route (your existing logic) ---
     const pool = [...plaques];
     const route = [];
@@ -465,11 +470,11 @@ if (state.locationMethod === 'GPS') {
 }
                     state.userLocation = startLoc;
 
-                   // 2. Fetch & Filter
+// 2. Fetch & Filter
 const all = await Api.fetchPlaques(city.url);
 let filtered = all;
 
-// First: restrict to the selected collection (e.g. "Charles Dickens" or "Britpop")
+// First: restrict to the selected collection
 if (state.collection) {
     const col = state.collection.toLowerCase();
     filtered = filtered.filter(p =>
@@ -477,7 +482,7 @@ if (state.collection) {
     );
 }
 
-// Optional additional keyword filter (title/summary/bio)
+// Optional extra keyword filter
 if (state.category.trim()) {
     const term = state.category.toLowerCase().trim();
     filtered = filtered.filter(p =>
@@ -486,6 +491,23 @@ if (state.category.trim()) {
         (p.bio     && p.bio.toLowerCase().includes(term))
     );
 }
+
+// 🔧 NEW: keep plaques without coords; only apply radius if we *have* lat/lon
+const nearby = filtered.filter(p => {
+    const hasCoords =
+        Number.isFinite(p.latitude) &&
+        Number.isFinite(p.longitude);
+
+    if (!hasCoords) return true;  // keep it – we can't distance-check it
+
+    const dist = Geo.calculateDistance(
+        startLoc.latitude,
+        startLoc.longitude,
+        p.latitude,
+        p.longitude
+    );
+    return dist <= state.radius;
+});
 
 const nearby = filtered.filter(p =>
     Geo.calculateDistance(
