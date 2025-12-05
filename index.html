@@ -99,28 +99,30 @@
         const AUDIO_TRIGGER_DISTANCE = 0.0062; // ~10 meters in miles
 
         // --- State ---
-        const state = {
-            view: 'HOME', // HOME, TOUR, FAVORITES, COLOURS, GUIDE
-            loading: false,
-            error: null,
-            cityIndex: 0,
-            locationMethod: 'GPS', // GPS, MANUAL
-            manualAddress: '',
-            radius: 1,
-            category: '',
-            stops: 5,
-            availableCategories: [],
-            candidatePlaques: [],
-            activeTour: [],
-            selectedForRemoval: new Set(),
-            isAutoPlay: false,
-            playedPlaques: new Set(), // IDs
-            userLocation: null,
-            watchId: null,
-            bioCache: {},
-            isPlanned: false,       // manual “plan for later” vs “start now”
-            startHint: ''           // e.g. “Baker Street station”
-        };
+const state = {
+    view: 'HOME', // HOME, TOUR, FAVORITES, COLOURS, GUIDE
+    loading: false,
+    error: null,
+    cityIndex: 0,
+    locationMethod: 'GPS', // GPS, MANUAL
+    manualAddress: '',
+    radius: 1,
+    category: '',              // optional keyword filter
+    collection: '',            // selected collection (e.g. "Charles Dickens", "Britpop")
+    stops: 5,
+    availableCategories: [],   // still used for the datalist (we'll mirror collections into here)
+    availableCollections: [],  // populated from lead_subject_primary_role
+    candidatePlaques: [],
+    activeTour: [],
+    selectedForRemoval: new Set(),
+    isAutoPlay: false,
+    playedPlaques: new Set(), // IDs
+    userLocation: null,
+    watchId: null,
+    bioCache: {},
+    isPlanned: false,       // manual “plan for later” vs “start now”
+    startHint: ''           // e.g. “Baker Street station”
+};
 
         // --- Services: Geo ---
         const Geo = {
@@ -291,41 +293,42 @@ generateMapsNavUrl: (plaques) => {
 }
         };
 
-        // --- Services: API ---
-        const Api = {
-            fetchPlaques: async (url) => {
-                const res = await fetch(url);
-                const data = await res.json();
-                return data.map((item, idx) => ({
-    id: String(item.id ?? `plaque-${idx}`),   // 🔧 force string IDs
-    title: item.title || 'Unknown Title',
-    category: item.lead_subject_primary_role || item.category || '',
-    latitude: parseFloat(item.latitude),
-    longitude: parseFloat(item.longitude),
-    address: item.address || '',
-    summary: item.subjects || item.summary || item.inscription || item.description || 'No description available.',
-    wikipediaUrl: item.lead_subject_bio || null
-}));
-            },
-            fetchWikiBio: async (url) => {
-                if (!url) return '';
-                if (state.bioCache[url]) return state.bioCache[url];
-                try {
-                    const title = url.split('/').pop();
-                    const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${title}`);
-                    const json = await res.json();
-                    const extract = json.extract || '';
-                    state.bioCache[url] = extract;
-                    return extract;
-                } catch (e) { return ''; }
-            },
-            geocode: async (query) => {
-                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
-                const data = await res.json();
-                if (data && data.length) return { latitude: parseFloat(data[0].lat), longitude: parseFloat(data[0].lon) };
-                throw new Error('Location not found');
-            }
-        };
+  // --- Services: API ---
+const Api = {
+    fetchPlaques: async (url) => {
+        const res = await fetch(url);
+        const data = await res.json();
+
+        return data.map((item, idx) => ({
+            id: String(item.id ?? `plaque-${idx}`),   // 🔧 force string IDs
+            title: item.title || 'Unknown Title',
+
+            // This is effectively your "collection" – e.g. "Charles Dickens" or "Britpop"
+            category: item.lead_subject_primary_role || item.category || '',
+
+            latitude: parseFloat(item.latitude),
+            longitude: parseFloat(item.longitude),
+            address: item.address || '',
+
+            // Shorter description used on the card
+            summary: item.subjects ||
+                     item.summary ||
+                     item.inscription ||
+                     item.description ||
+                     'No description available.',
+
+            // Full biography text comes straight from the JSON
+            bio: item.lead_subject_bio || ''
+        }));
+    },
+
+    geocode: async (query) => {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+        const data = await res.json();
+        if (data && data.length) return { latitude: parseFloat(data[0].lat), longitude: parseFloat(data[0].lon) };
+        throw new Error('Location not found');
+    }
+};
 
         // --- Icons (SVG Strings) ---
         const Icons = {
@@ -405,23 +408,43 @@ generateMapsNavUrl: (plaques) => {
                 app.loadCategories(); 
                 app.render(); 
             },
+            setCollection: (val) => {
+                state.collection = val;
+                // no need to reload plaques here – we filter on generate
+                app.render();
+            },
             setMethod: (method) => { state.locationMethod = method; app.render(); },
             setAddress: (val) => { state.manualAddress = val; }, // Bound via oninput
             setRadius: (val) => { state.radius = parseFloat(val); document.getElementById('radius-val').innerText = val + ' mi'; },
             setStops: (val) => { state.stops = parseInt(val); document.getElementById('stops-val').innerText = val; },
             setCategory: (val) => { state.category = val; },
 
-            // Logic: Load Categories for Autocomplete
-            loadCategories: async () => {
-                const city = CITIES[state.cityIndex];
-                try {
-                    const plaques = await Api.fetchPlaques(city.url);
-                    const cats = new Set(plaques.map(p => p.category).filter(c => c && c.trim()));
-                    state.availableCategories = Array.from(cats).sort();
-                    // Re-render only datalist if on home screen
-                    if(state.view === 'HOME') app.render(); 
-                } catch(e) { console.error(e); }
-            },
+            // Logic: Load Collections (and feed autocomplete)
+loadCategories: async () => {
+    const city = CITIES[state.cityIndex];
+    try {
+        const plaques = await Api.fetchPlaques(city.url);
+
+        // Collections are based on lead_subject_primary_role (mapped to p.category)
+        const collections = new Set(
+            plaques.map(p => p.category).filter(c => c && c.trim())
+        );
+
+        state.availableCollections = Array.from(collections).sort();
+
+        // Default to first collection if nothing selected yet
+        if (!state.collection && state.availableCollections.length) {
+            state.collection = state.availableCollections[0];
+        }
+
+        // Reuse the same list for the "Category / Role" datalist suggestions
+        state.availableCategories = state.availableCollections;
+
+        if (state.view === 'HOME') app.render();
+    } catch (e) {
+        console.error(e);
+    }
+},
 
             // Logic: Generate Tour
             generateTour: async (e) => {
@@ -443,19 +466,36 @@ generateMapsNavUrl: (plaques) => {
                     }
                     state.userLocation = startLoc;
 
-                    // 2. Fetch & Filter
-                    const all = await Api.fetchPlaques(city.url);
-                    let filtered = all;
-                    if (state.category.trim()) {
-                        const term = state.category.toLowerCase().trim();
-                        filtered = all.filter(p => 
-                            (p.category && p.category.toLowerCase().includes(term)) ||
-                            (p.title && p.title.toLowerCase().includes(term)) ||
-                            (p.summary && p.summary.toLowerCase().includes(term))
-                        );
-                    }
+                   // 2. Fetch & Filter
+const all = await Api.fetchPlaques(city.url);
+let filtered = all;
 
-                    const nearby = filtered.filter(p => Geo.calculateDistance(startLoc.latitude, startLoc.longitude, p.latitude, p.longitude) <= state.radius);
+// First: restrict to the selected collection (e.g. "Charles Dickens" or "Britpop")
+if (state.collection) {
+    const col = state.collection.toLowerCase();
+    filtered = filtered.filter(p =>
+        p.category && p.category.toLowerCase() === col
+    );
+}
+
+// Optional additional keyword filter (title/summary/bio)
+if (state.category.trim()) {
+    const term = state.category.toLowerCase().trim();
+    filtered = filtered.filter(p =>
+        (p.title   && p.title.toLowerCase().includes(term))   ||
+        (p.summary && p.summary.toLowerCase().includes(term)) ||
+        (p.bio     && p.bio.toLowerCase().includes(term))
+    );
+}
+
+const nearby = filtered.filter(p =>
+    Geo.calculateDistance(
+        startLoc.latitude,
+        startLoc.longitude,
+        p.latitude,
+        p.longitude
+    ) <= state.radius
+);
                     
                     if (nearby.length === 0) throw new Error(`No places of interest found within ${state.radius} miles.`);
 
@@ -547,7 +587,7 @@ generateMapsNavUrl: (plaques) => {
 },         
 
             // Logic: Audio
-    speak: (plaqueId) => {
+speak: (plaqueId) => {
     const plaque = state.activeTour.find(p => p.id === plaqueId);
     if (!plaque) return;
 
@@ -559,8 +599,8 @@ generateMapsNavUrl: (plaques) => {
     // Stop anything currently speaking
     window.speechSynthesis.cancel();
 
-    // Build the text from data we already have (no async)
-    const baseText = `${plaque.title}. ${plaque.summary || ''}`;
+    // Build the text from data we already have (title + summary + bio)
+    const baseText = `${plaque.title}. ${plaque.summary || ''} ${plaque.bio || ''}`;
     const text = baseText.trim();
     if (!text) {
         alert('No description available to read for this place of interest.');
@@ -574,26 +614,12 @@ generateMapsNavUrl: (plaques) => {
     utterance.pitch = 1.05;  // a touch brighter
     utterance.volume = 1.0;
 
-    // (Optional) basic logging if you open DevTools
     utterance.onstart = () => console.log('Speech started');
     utterance.onend = () => console.log('Speech ended');
     utterance.onerror = (e) => console.error('Speech error', e);
 
-    // 🔊 Speak immediately – still within the click event
     window.speechSynthesis.speak(utterance);
-
-    // 🔎 Fetch wiki bio *after* starting speech, just to update the card text
-    if (plaque.wikipediaUrl) {
-        Api.fetchWikiBio(plaque.wikipediaUrl).then(bio => {
-            if (!bio) return;
-            const bioEl = document.getElementById(`bio-${plaque.id}`);
-            if (bioEl) bioEl.innerText = bio.substring(0, 300) + '...';
-            const link = document.getElementById(`link-${plaque.id}`);
-            if (link) link.style.display = 'inline';
-        }).catch(err => console.error('Wiki bio fetch error', err));
-    }
 },
-
             toggleAutoPlay: () => {
                 state.isAutoPlay = !state.isAutoPlay;
                 if (state.isAutoPlay) app.startAudioWatch();
@@ -779,20 +805,6 @@ updateActionBar: () => {
     if (state.view === 'TOUR') {
         // Ensure Maps + Save action bar is rendered
         app.updateActionBar();
-
-        // Existing bio prefetch logic
-        state.activeTour.forEach(p => {
-            if (p.wikipediaUrl) {
-                Api.fetchWikiBio(p.wikipediaUrl).then(bio => {
-                    const el = document.getElementById(`bio-${p.id}`);
-                    if (el) {
-                        el.innerText = bio.substring(0, 300) + '...';
-                        const link = document.getElementById(`link-${p.id}`);
-                        if (link) link.style.display = 'inline';
-                    }
-                });
-            }
-        });
     }
 
     // Always refresh bottom navigation
@@ -842,10 +854,19 @@ updateActionBar: () => {
                 <div class="w-full max-w-md mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 mt-0">
                     <form onsubmit="app.generateTour(event)" class="p-6 space-y-6">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Select City</label>
-                            <select onchange="app.setCity(this.selectedIndex)" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plaque-blue bg-white">
-                                ${CITIES.map((c, i) => `<option value="${i}" ${i === state.cityIndex ? 'selected' : ''}>${c.name}</option>`).join('')}
-                            </select>
+                          <label class="block text-sm font-medium text-gray-700 mb-2">Select Collection</label>
+                          <select
+                             onchange="app.setCollection(this.value)"
+                             class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plaque-blue bg-white"
+                          >
+                              ${
+                                state.availableCollections.length
+                                  ? state.availableCollections
+                                  .map(c => `<option value="${c}" ${c === state.collection ? 'selected' : ''}>${c}</option>`)
+                                  .join('')
+                                  : '<option disabled>Loading collections…</option>'
+                               }
+                          </select>
                         </div>
 
 <div>
@@ -1024,14 +1045,13 @@ updateActionBar: () => {
                         </div>
                         <p class="text-gray-600 text-sm leading-relaxed mb-4">${plaque.summary}</p>
 
-                        ${plaque.wikipediaUrl ? `
-                        <div class="mb-4 bg-gray-50 p-3 rounded-lg border border-gray-100 text-sm">
-                            <p class="text-xs font-bold text-gray-400 mb-1">BIOGRAPHY SYNOPSIS</p>
-                            <p class="text-gray-700 leading-relaxed text-xs">
-                                <span id="bio-${plaque.id}">Loading synopsis...</span>
-                                <a id="link-${plaque.id}" href="${plaque.wikipediaUrl}" target="_blank" style="display:none" class="text-plaque-blue hover:underline ml-1 font-medium">Read more</a>
-                            </p>
-                        </div>` : ''}
+${plaque.bio ? `
+<div class="mb-4 bg-gray-50 p-3 rounded-lg border border-gray-100 text-sm">
+    <p class="text-xs font-bold text-gray-400 mb-1">BIOGRAPHY SYNOPSIS</p>
+    <p class="text-gray-700 leading-relaxed text-xs">
+        ${plaque.bio}
+    </p>
+</div>` : ''}
 
                         <div class="flex items-center gap-3 border-t border-gray-100 pt-3">
                             <button onclick="app.speak('${plaque.id}')" class="flex-1 flex items-center justify-center gap-2 py-2 px-3 bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-plaque-blue rounded-lg text-sm font-medium transition-colors">
@@ -1097,11 +1117,12 @@ updateActionBar: () => {
                         around a starting point you choose.
                     </p>
 
-                    <h3 class="text-sm font-semibold text-gray-900 mt-3">1. Pick a city</h3>
-                    <p class="text-sm text-gray-700">
-                        Choose from the Collections in the list. Each city has its own set of
-                        Themes and suggested example streets you can search around.
-                    </p>
+                    <h3 class="text-sm font-semibold text-gray-900 mt-3">1. Pick a collection</h3>
+<p class="text-sm text-gray-700">
+    Choose from the themed collections in the list, such as
+    <strong>Charles Dickens</strong> or <strong>Britpop</strong>.
+    Each collection groups together locations that share a common story.
+</p>
 
                     <h3 class="text-sm font-semibold text-gray-900 mt-3">2. Choose where to start</h3>
 <p class="text-sm text-gray-700">
