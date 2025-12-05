@@ -42,13 +42,13 @@
             <!-- Center Logo -->
             <div class="absolute left-1/2 transform -translate-x-1/2 flex items-end justify-center cursor-pointer h-full" onclick="app.goHome()">
                 <img 
-                    src="https://raw.githubusercontent.com/jameswroberts1-sketch/PlaqueLark/main/PlaqueLark.PNG" 
-                    alt="Plaque Lark" 
+                    src="https://raw.githubusercontent.com/jameswroberts1-sketch/Curated-Tours/main/Curated-Tours.PNG" 
+                    alt="Curated Tours" 
                     class="h-full w-auto object-contain scale-110 origin-bottom"
                     onerror="this.style.display='none'; document.getElementById('logo-fallback').style.display='flex'"
                 >
                 <div id="logo-fallback" class="hidden flex-col items-center justify-end pb-4 h-full">
-                    <h1 class="text-4xl font-extrabold text-plaque-blue tracking-tight">Plaque Lark</h1>
+                    <h1 class="text-4xl font-extrabold text-plaque-blue tracking-tight">Curated Tours</h1>
                     <p class="text-sm text-gray-500 mt-1">Sifting city streets for ghosts</p>
                 </div>
             </div>
@@ -80,21 +80,21 @@
         // --- Constants ---
         const CITIES = [
     {
-        name: 'London',
-        url: 'https://raw.githubusercontent.com/jameswroberts1-sketch/PlaqueLark/refs/heads/main/London_Heritage.json',
+        name: 'Collections',
+        url: 'https://raw.githubusercontent.com/jameswroberts1-sketch/Curated-Tours/refs/heads/main/Collections.json',
         defaultLat: 51.5074,
         defaultLng: -0.1278,
-        exampleAddress: 'Baker Street'
-    },
-    {
-        name: 'Manchester',
-        url: 'https://raw.githubusercontent.com/jameswroberts1-sketch/PlaqueLark/refs/heads/main/Manchester.json',
-        defaultLat: 53.4808,
-        defaultLng: -2.2426,
-        exampleAddress: "St Peter's Square"
+        exampleAddress: 'Britpop'
     }
+    //{
+    //    name: 'Manchester',
+    //    url: 'https://raw.githubusercontent.com/jameswroberts1-sketch/PlaqueLark/refs/heads/main/Manchester.json',
+    //    defaultLat: 53.4808,
+    //    defaultLng: -2.2426,
+    //    exampleAddress: "St Peter's Square"
+    //}
 ];
-        const STORAGE_KEY = 'plaque_explorer_saved_tours';
+        const STORAGE_KEY = 'collections_saved_tours';
         const MAX_TOUR_SIZE = 10;
         const AUDIO_TRIGGER_DISTANCE = 0.0062; // ~10 meters in miles
 
@@ -304,7 +304,7 @@ generateMapsNavUrl: (plaques) => {
     longitude: parseFloat(item.longitude),
     address: item.address || '',
     summary: item.subjects || item.summary || item.inscription || item.description || 'No description available.',
-    wikipediaUrl: item.lead_subject_wikipedia || null
+    wikipediaUrl: item.lead_subject_bio || null
 }));
             },
             fetchWikiBio: async (url) => {
@@ -457,7 +457,7 @@ generateMapsNavUrl: (plaques) => {
 
                     const nearby = filtered.filter(p => Geo.calculateDistance(startLoc.latitude, startLoc.longitude, p.latitude, p.longitude) <= state.radius);
                     
-                    if (nearby.length === 0) throw new Error(`No plaques found within ${state.radius} miles.`);
+                    if (nearby.length === 0) throw new Error(`No places of interest found within ${state.radius} miles.`);
 
                     // 3. Select & Optimize
                     const shuffled = [...nearby].sort(() => 0.5 - Math.random());
@@ -511,7 +511,7 @@ generateMapsNavUrl: (plaques) => {
     const needed = state.stops - kept.length;
 
     if (needed > 0 && pool.length < needed) {
-        alert('Not enough alternative locations nearby to replace all selected plaques. Try reducing the number selected or increasing your radius.');
+        alert('Not enough alternative locations nearby to replace all selected places of interest. Try reducing the number selected or increasing your radius.');
         return;
     }
 
@@ -563,7 +563,7 @@ generateMapsNavUrl: (plaques) => {
     const baseText = `${plaque.title}. ${plaque.summary || ''}`;
     const text = baseText.trim();
     if (!text) {
-        alert('No description available to read for this plaque.');
+        alert('No description available to read for this place of interest.');
         return;
     }
 
@@ -699,7 +699,7 @@ updateActionBar: () => {
                 >
                     ${Icons.Refresh} Regenerate ${count} Selected
                 </button>
-                ${!canSwap ? '<p class="text-xs text-red-500 text-center">No alternative plaques nearby to swap in.</p>' : ''}
+                ${!canSwap ? '<p class="text-xs text-red-500 text-center">No alternative places of interest nearby to swap in.</p>' : ''}
                 <button
                     onclick="app.removeSelectedNoReplacement()"
                     class="w-full bg-white border border-red-500 text-red-600 font-bold py-3 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors"
@@ -906,7 +906,7 @@ updateActionBar: () => {
             : `<p class="mt-2 text-xs text-gray-500">
                     Use this to <strong>plan a tour for the future</strong>. When you’re
                     ready to do it, make your way towards this address or landmark,
-                    open your saved tour in PlaqueLark, and start the route from there.
+                    open your saved tour in Curated Tours, and start the route from there.
                </p>`
     }
 </div>
@@ -1091,16 +1091,16 @@ updateActionBar: () => {
             renderGuide: () => {
                 return `
                 <div class="max-w-md mx-auto bg-white rounded-2xl shadow-md p-6 space-y-4 mt-4">
-                    <h2 class="text-xl font-bold text-gray-900">How PlaqueLark works</h2>
+                    <h2 class="text-xl font-bold text-gray-900">How Curated Tours works</h2>
                     <p class="text-sm text-gray-700">
-                        PlaqueLark helps you build short, walkable tours of historic plaques
+                        Curated Tours helps you build short, walkable tours of historic places
                         around a starting point you choose.
                     </p>
 
                     <h3 class="text-sm font-semibold text-gray-900 mt-3">1. Pick a city</h3>
                     <p class="text-sm text-gray-700">
-                        Choose from the cities in the list. Each city has its own set of
-                        plaques and suggested example streets you can search around.
+                        Choose from the Collections in the list. Each city has its own set of
+                        Themes and suggested example streets you can search around.
                     </p>
 
                     <h3 class="text-sm font-semibold text-gray-900 mt-3">2. Choose where to start</h3>
@@ -1115,9 +1115,9 @@ updateActionBar: () => {
 
                     <h3 class="text-sm font-semibold text-gray-900 mt-3">3. Fine-tune your walk</h3>
                     <p class="text-sm text-gray-700">
-                        Use the <strong>Radius</strong> slider to decide how far PlaqueLark
-                        should look for plaques around your starting point, and
-                        <strong>Stops</strong> to choose how many plaques you’d like to visit.
+                        Use the <strong>Radius</strong> slider to decide how far Curated Tours
+                        should look for places of interest around your starting point, and
+                        <strong>Stops</strong> to choose how many places you’d like to visit.
                         You can also type a <strong>Category / Role</strong> such as
                         “musician”, “writer” or “scientist” if you want a themed walk.
                     </p>
@@ -1126,12 +1126,12 @@ updateActionBar: () => {
                     <p class="text-sm text-gray-700">
                         Tap <strong>Generate Walking Tour</strong> to see your route.
                         You can mark any stop as <strong>Remove</strong> to swap it for
-                        another nearby plaque, or remove it altogether if you want a shorter tour.
+                        another nearby place of interest, or remove it altogether if you want a shorter tour.
                     </p>
 
                     <h3 class="text-sm font-semibold text-gray-900 mt-3">5. Walk the route</h3>
 <p class="text-sm text-gray-700">
-    Use the cards to read about each plaque, tap
+    Use the cards to read about each place of interest, tap
     <strong>Listen</strong> for spoken audio, and use
     <strong>Start in Google Maps</strong> for turn-by-turn directions from
     wherever you are. If you planned a tour around an address, you can also
