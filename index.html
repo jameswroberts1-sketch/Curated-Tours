@@ -456,14 +456,13 @@ loadCategories: async () => {
                 const city = CITIES[state.cityIndex];
                 try {
                     // 1. Location
-                    let startLoc;
-                    if (state.locationMethod === 'GPS') {
-                        startLoc = await Geo.getCurrentPosition();
-                    } else {
-                        const q = state.manualAddress.toLowerCase().includes(city.name.toLowerCase()) 
-                            ? state.manualAddress : `${state.manualAddress}, ${city.name}`;
-                        startLoc = await Api.geocode(q);
-                    }
+let startLoc;
+if (state.locationMethod === 'GPS') {
+    startLoc = await Geo.getCurrentPosition();
+} else {
+    const q = state.manualAddress;   // <— change to this
+    startLoc = await Api.geocode(q);
+}
                     state.userLocation = startLoc;
 
                    // 2. Fetch & Filter
