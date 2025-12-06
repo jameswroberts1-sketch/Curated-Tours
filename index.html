@@ -508,15 +508,6 @@ const nearby = filtered.filter(p => {
     );
     return dist <= state.radius;
 });
-
-const nearby = filtered.filter(p =>
-    Geo.calculateDistance(
-        startLoc.latitude,
-        startLoc.longitude,
-        p.latitude,
-        p.longitude
-    ) <= state.radius
-);
                     
                     if (nearby.length === 0) throw new Error(`No places of interest found within ${state.radius} miles.`);
 
