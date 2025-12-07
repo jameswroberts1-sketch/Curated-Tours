@@ -898,131 +898,140 @@ updateActionBar: () => {
             },
     
             renderHome: () => {
-                return `
-                <div class="w-full max-w-md mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 mt-0">
-                    <form onsubmit="app.generateTour(event)" class="p-6 space-y-6">
-                        <div>
-  <label class="block text-sm font-medium text-gray-700 mb-2">Select City</label>
-  <select
-     onchange="app.setCityFilter(this.value)"
-     class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plaque-blue bg-white"
-  >
-      ${
-        state.availableCities.length
-          ? state.availableCities
-              .map(city => `<option value="${city}" ${city === state.selectedCity ? 'selected' : ''}>${city}</option>`)
-              .join('')
-          : '<option disabled>Loading cities…</option>'
-      }
-  </select>
-</div>
+    return `
+    <div class="w-full max-w-md mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 mt-0">
+        <form onsubmit="app.generateTour(event)" class="p-6 space-y-6">
+            <!-- 1. City -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Select City</label>
+              <select
+                 onchange="app.setCityFilter(this.value)"
+                 class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plaque-blue bg-white"
+              >
+                  ${
+                    state.availableCities.length
+                      ? state.availableCities
+                          .map(city => `<option value="${city}" ${city === state.selectedCity ? 'selected' : ''}>${city}</option>`)
+                          .join('')
+                      : '<option disabled>Loading cities…</option>'
+                  }
+              </select>
+            </div>
 
-<div>
-    <label class="block text-sm font-medium text-gray-700 mb-2">Start Location</label>
-    <div class="flex gap-2 mb-3">
-        <button
-            type="button"
-            onclick="app.setMethod('GPS')"
-            class="flex-1 py-2 px-3 text-xs font-medium rounded-2xl transition-all shadow-sm ${
-                state.locationMethod === 'GPS'
-                    ? 'bg-plaque-blue text-white'
-                    : 'bg-red-600 text-white'
-            }"
-        >
-            <span class="block text-sm font-semibold leading-tight">
-                Start now
-            </span>
-            <span class="block text-[0.7rem] leading-tight opacity-80">
-                Current location
-            </span>
-        </button>
+            <!-- 2. Collection for that city -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Select Collection (Category / Role)
+                </label>
+                <select
+                    onchange="app.setCollection(this.value)"
+                    class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plaque-blue bg-white"
+                >
+                    ${
+                      state.availableCollections.length
+                        ? state.availableCollections
+                            .map(c => `<option value="${c}" ${c === state.collection ? 'selected' : ''}>${c}</option>`)
+                            .join('')
+                        : '<option disabled>Select a city first…</option>'
+                    }
+                </select>
+            </div>
 
-        <button
-            type="button"
-            onclick="app.setMethod('MANUAL')"
-            class="flex-1 py-2 px-3 text-xs font-medium rounded-2xl transition-all shadow-sm ${
-                state.locationMethod === 'MANUAL'
-                    ? 'bg-plaque-blue text-white'
-                    : 'bg-red-600 text-white'
-            }"
-        >
-            <span class="block text-sm font-semibold leading-tight">
-                Plan for later
-            </span>
-            <span class="block text-[0.7rem] leading-tight opacity-80">
-                Choose start point
-            </span>
-        </button>
-    </div>
+            <!-- 3. Start location -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Start Location</label>
+                <div class="flex gap-2 mb-3">
+                    <button
+                        type="button"
+                        onclick="app.setMethod('GPS')"
+                        class="flex-1 py-2 px-3 text-xs font-medium rounded-2xl transition-all shadow-sm ${
+                            state.locationMethod === 'GPS'
+                                ? 'bg-plaque-blue text-white'
+                                : 'bg-red-600 text-white'
+                        }"
+                    >
+                        <span class="block text-sm font-semibold leading-tight">
+                            Start now
+                        </span>
+                        <span class="block text-[0.7rem] leading-tight opacity-80">
+                            Current location
+                        </span>
+                    </button>
 
-    ${state.locationMethod === 'MANUAL' ? `
-        <input
-            type="text"
-            placeholder="e.g., ${CITIES[state.cityIndex].exampleAddress || 'Baker Street'}"
-            value="${state.manualAddress}"
-            oninput="app.setAddress(this.value)"
-            required
-            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plaque-blue outline-none"
-        >
-    ` : ''}
-
-    ${
-        state.locationMethod === 'GPS'
-            ? `<p class="mt-2 text-xs text-gray-500">
-                    Use this when you’re already out in the city and want your walk
-                    to begin from where you’re standing right now.
-               </p>`
-            : `<p class="mt-2 text-xs text-gray-500">
-                    Use this to <strong>plan a tour for the future</strong>. When you’re
-                    ready to do it, make your way towards this address or landmark,
-                    open your saved tour in Curated Tours, and start the route from there.
-               </p>`
-    }
-</div>
-
-                        <div>
-    <label class="block text-sm font-medium text-gray-700 mb-2">
-        Select Collection (Category / Role)
-    </label>
-    <select
-        onchange="app.setCollection(this.value)"
-        class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plaque-blue bg-white"
-    >
-        ${
-          state.availableCollections.length
-            ? state.availableCollections
-                .map(c => `<option value="${c}" ${c === state.collection ? 'selected' : ''}>${c}</option>`)
-                .join('')
-            : '<option disabled>Select a city first…</option>'
-        }
-    </select>
-</div>
-
-                        <div class="flex gap-4">
-                            <div class="flex-1">
-                                <div class="flex justify-between items-center mb-2">
-                                    <label class="text-sm font-medium text-gray-700">Radius</label>
-                                    <span id="radius-val" class="text-sm font-bold text-plaque-blue">${state.radius} mi</span>
-                                </div>
-                                <input type="range" min="0.2" max="5" step="0.1" value="${state.radius}" oninput="app.setRadius(this.value)" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-plaque-blue">
-                            </div>
-                            <div class="flex-1">
-                                <div class="flex justify-between items-center mb-2">
-                                    <label class="text-sm font-medium text-gray-700">Stops</label>
-                                    <span id="stops-val" class="text-sm font-bold text-plaque-blue">${state.stops}</span>
-                                </div>
-                                <input type="range" min="1" max="${MAX_TOUR_SIZE}" step="1" value="${state.stops}" oninput="app.setStops(this.value)" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-plaque-blue">
-                            </div>
-                        </div>
-
-                        <button type="submit" ${state.loading ? 'disabled' : ''} class="w-full bg-plaque-blue hover:bg-blue-900 text-white font-bold py-4 rounded-xl shadow-lg transition disabled:opacity-70 flex justify-center items-center">
-                            ${state.loading ? 'Generating...' : 'Generate Walking Tour'}
-                        </button>
-                    </form>
+                    <button
+                        type="button"
+                        onclick="app.setMethod('MANUAL')"
+                        class="flex-1 py-2 px-3 text-xs font-medium rounded-2xl transition-all shadow-sm ${
+                            state.locationMethod === 'MANUAL'
+                                ? 'bg-plaque-blue text-white'
+                                : 'bg-red-600 text-white'
+                        }"
+                    >
+                        <span class="block text-sm font-semibold leading-tight">
+                            Plan for later
+                        </span>
+                        <span class="block text-[0.7rem] leading-tight opacity-80">
+                            Choose start point
+                        </span>
+                    </button>
                 </div>
-                <div class="mt-8 text-center text-gray-400 text-sm"><p>Discover historical markers in London and beyond.</p></div>
-                `;
-            },
+
+                ${
+                    state.locationMethod === 'MANUAL' ? `
+                        <input
+                            type="text"
+                            placeholder="e.g., ${CITIES[state.cityIndex].exampleAddress || 'Baker Street'}"
+                            value="${state.manualAddress}"
+                            oninput="app.setAddress(this.value)"
+                            required
+                            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plaque-blue outline-none"
+                        >
+                    ` : ''
+                }
+
+                ${
+                    state.locationMethod === 'GPS'
+                        ? `<p class="mt-2 text-xs text-gray-500">
+                                Use this when you’re already out in the city and want your walk
+                                to begin from where you’re standing right now.
+                           </p>`
+                        : `<p class="mt-2 text-xs text-gray-500">
+                                Use this to <strong>plan a tour for the future</strong>. When you’re
+                                ready to do it, make your way towards this address or landmark,
+                                open your saved tour in Curated Tours, and start the route from there.
+                           </p>`
+                }
+            </div>
+
+            <!-- 4. Radius / stops sliders -->
+            <div class="flex gap-4">
+                <div class="flex-1">
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-sm font-medium text-gray-700">Radius</label>
+                        <span id="radius-val" class="text-sm font-bold text-plaque-blue">${state.radius} mi</span>
+                    </div>
+                    <input type="range" min="0.2" max="5" step="0.1" value="${state.radius}" oninput="app.setRadius(this.value)" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-plaque-blue">
+                </div>
+                <div class="flex-1">
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-sm font-medium text-gray-700">Stops</label>
+                        <span id="stops-val" class="text-sm font-bold text-plaque-blue">${state.stops}</span>
+                    </div>
+                    <input type="range" min="1" max="${MAX_TOUR_SIZE}" step="1" value="${state.stops}" oninput="app.setStops(this.value)" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-plaque-blue">
+                </div>
+            </div>
+
+            <!-- 5. Generate -->
+            <button type="submit" ${state.loading ? 'disabled' : ''} class="w-full bg-plaque-blue hover:bg-blue-900 text-white font-bold py-4 rounded-xl shadow-lg transition disabled:opacity-70 flex justify-center items-center">
+                ${state.loading ? 'Generating...' : 'Generate Walking Tour'}
+            </button>
+        </form>
+    </div>
+    <div class="mt-8 text-center text-gray-400 text-sm">
+        <p>Discover historical markers in London and beyond.</p>
+    </div>
+    `;
+},
 
             renderTour: () => {
                 const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
