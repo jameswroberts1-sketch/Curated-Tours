@@ -110,6 +110,7 @@ const state = {
     locationMethod: 'GPS',
     manualAddress: '',
     radius: 1,
+    stops: 5,
 
     collection: '',        // selected lead_subject_primary_role
     // category is no longer used as a free-text filter
@@ -702,7 +703,7 @@ speak: (plaqueId) => {
             saveTour: () => {
     if (!state.activeTour.length) return;
 
-    const cityName = CITIES[state.cityIndex]?.name || 'Tour';
+    const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
 
     // Sensible default name
     const defaultName = state.isPlanned
@@ -1197,21 +1198,21 @@ ${plaque.bio ? `
                         <strong>Stops</strong> to choose how many places you’d like to visit.
                     </p>
 
-                    <h3 class="text-sm font-semibold text-gray-900 mt-3">2. Choose a collection</h3>
+                    <h3 class="text-sm font-semibold text-gray-900 mt-3">4. Choose a collection</h3>
                     <p class="text-sm text-gray-700">
                        Then choose a <strong>Collection (Category / Role)</strong> for that city –
                        for example <strong>Britpop</strong>, <strong>Charles Dickens</strong> or
                        any other themed group of locations.
                     </p>
 
-                    <h3 class="text-sm font-semibold text-gray-900 mt-3">4. Explore and tweak</h3>
+                    <h3 class="text-sm font-semibold text-gray-900 mt-3">5. Explore and tweak</h3>
                     <p class="text-sm text-gray-700">
                         Tap <strong>Generate Walking Tour</strong> to see your route.
                         You can mark any stop as <strong>Remove</strong> to swap it for
                         another nearby place of interest, or remove it altogether if you want a shorter tour.
                     </p>
 
-                    <h3 class="text-sm font-semibold text-gray-900 mt-3">5. Walk the route</h3>
+                    <h3 class="text-sm font-semibold text-gray-900 mt-3">6. Walk the route</h3>
                     <p class="text-sm text-gray-700">
                        Use the cards to read about each place of interest, tap
                        <strong>Listen</strong> for spoken audio, and use
