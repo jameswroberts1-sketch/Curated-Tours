@@ -103,25 +103,32 @@ const state = {
     view: 'HOME', // HOME, TOUR, FAVORITES, COLOURS, GUIDE
     loading: false,
     error: null,
-    cityIndex: 0,
-    locationMethod: 'GPS', // GPS, MANUAL
+
+    cityIndex: 0,          // still used for the single Collections.json entry
+    selectedCity: '',      // NEW: city chosen from `area`
+
+    locationMethod: 'GPS',
     manualAddress: '',
     radius: 1,
-    category: '',              // optional keyword filter
-    collection: '',            // selected collection (e.g. "Charles Dickens", "Britpop")
-    stops: 5,
-    availableCategories: [],   // still used for the datalist (we'll mirror collections into here)
-    availableCollections: [],  // populated from lead_subject_primary_role
+
+    collection: '',        // selected lead_subject_primary_role
+    // category is no longer used as a free-text filter
+    category: '',          // (you can delete this later if you like)
+
+    availableCities: [],       // NEW: distinct values from `area`
+    availableCollections: [],  // collections for the chosen city
+
     candidatePlaques: [],
     activeTour: [],
     selectedForRemoval: new Set(),
     isAutoPlay: false,
-    playedPlaques: new Set(), // IDs
+    playedPlaques: new Set(),
     userLocation: null,
     watchId: null,
     bioCache: {},
-    isPlanned: false,       // manual “plan for later” vs “start now”
-    startHint: ''           // e.g. “Baker Street station”
+    isPlanned: false,
+    startHint: '',
+    allPlaques: []         // NEW: cache of everything from Collections.json
 };
 
         // --- Services: Geo ---
@@ -305,24 +312,25 @@ const Api = {
         const data = await res.json();
 
         return data.map((item, idx) => ({
-            id: String(item.id ?? `plaque-${idx}`),   // 🔧 force string IDs
+            id: String(item.id ?? `plaque-${idx}`),
             title: item.title || 'Unknown Title',
 
-            // This is effectively your "collection" – e.g. "Charles Dickens" or "Britpop"
+            // Collection = lead_subject_primary_role
             category: item.lead_subject_primary_role || item.category || '',
+
+            // City / area
+            area: item.area || '',
 
             latitude: parseFloat(item.latitude),
             longitude: parseFloat(item.longitude),
             address: item.address || '',
 
-            // Shorter description used on the card
             summary: item.subjects ||
                      item.summary ||
                      item.inscription ||
                      item.description ||
                      'No description available.',
 
-            // Full biography text comes straight from the JSON
             bio: item.lead_subject_bio || ''
         }));
     },
@@ -334,7 +342,6 @@ const Api = {
         throw new Error('Location not found');
     }
 };
-
         // --- Icons (SVG Strings) ---
         const Icons = {
             Refresh: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>`,
@@ -407,43 +414,68 @@ const Api = {
             },
 
             // Update State Actions
-            setCity: (idx) => { 
-                state.cityIndex = idx; 
-                state.category = ''; 
-                app.loadCategories(); 
-                app.render(); 
-            },
-            setCollection: (val) => {
-                state.collection = val;
-                // no need to reload plaques here – we filter on generate
-                app.render();
-            },
-            setMethod: (method) => { state.locationMethod = method; app.render(); },
-            setAddress: (val) => { state.manualAddress = val; }, // Bound via oninput
-            setRadius: (val) => { state.radius = parseFloat(val); document.getElementById('radius-val').innerText = val + ' mi'; },
-            setStops: (val) => { state.stops = parseInt(val); document.getElementById('stops-val').innerText = val; },
-            setCategory: (val) => { state.category = val; },
+setMethod: (method) => { state.locationMethod = method; app.render(); },
+setAddress: (val) => { state.manualAddress = val; },
+setRadius: (val) => { state.radius = parseFloat(val); document.getElementById('radius-val').innerText = val + ' mi'; },
+setStops: (val) => { state.stops = parseInt(val); document.getElementById('stops-val').innerText = val; },
 
+setCityFilter: (cityName) => {
+    state.selectedCity = cityName;
+
+    const plaques = state.allPlaques || [];
+    const collectionsSet = new Set(
+        plaques
+            .filter(p => !cityName || p.area === cityName)
+            .map(p => p.category)
+            .filter(c => c && c.trim())
+    );
+    state.availableCollections = Array.from(collectionsSet).sort();
+
+    if (!state.availableCollections.includes(state.collection)) {
+        state.collection = state.availableCollections[0] || '';
+    }
+
+    app.render();
+},
+
+setCollection: (val) => {
+    state.collection = val;
+    app.render();
+},
             // Logic: Load Collections (and feed autocomplete)
 loadCategories: async () => {
-    const city = CITIES[state.cityIndex];
+    const cityCfg = CITIES[state.cityIndex]; // still just the Collections.json entry
+
     try {
-        const plaques = await Api.fetchPlaques(city.url);
+        const plaques = await Api.fetchPlaques(cityCfg.url);
+        state.allPlaques = plaques;
 
-        // Collections are based on lead_subject_primary_role (mapped to p.category)
-        const collections = new Set(
-            plaques.map(p => p.category).filter(c => c && c.trim())
+        // 1) Build city list from `area`
+        const citySet = new Set(
+            plaques
+                .map(p => p.area)
+                .filter(a => a && a.trim())
         );
+        state.availableCities = Array.from(citySet).sort();
 
-        state.availableCollections = Array.from(collections).sort();
+        // Default city if none chosen yet
+        if (!state.selectedCity && state.availableCities.length) {
+            state.selectedCity = state.availableCities[0];
+        }
 
-        // Default to first collection if nothing selected yet
+        // 2) Build collections list for the selected city
+        const collectionsSet = new Set(
+            plaques
+                .filter(p => !state.selectedCity || p.area === state.selectedCity)
+                .map(p => p.category)
+                .filter(c => c && c.trim())
+        );
+        state.availableCollections = Array.from(collectionsSet).sort();
+
+        // Default collection if none chosen yet
         if (!state.collection && state.availableCollections.length) {
             state.collection = state.availableCollections[0];
         }
-
-        // Reuse the same list for the "Category / Role" datalist suggestions
-        state.availableCategories = state.availableCollections;
 
         if (state.view === 'HOME') app.render();
     } catch (e) {
@@ -471,10 +503,22 @@ if (state.locationMethod === 'GPS') {
                     state.userLocation = startLoc;
 
 // 2. Fetch & Filter
-const all = await Api.fetchPlaques(city.url);
+const cityCfg = CITIES[state.cityIndex];
+const all = state.allPlaques && state.allPlaques.length
+    ? state.allPlaques
+    : await Api.fetchPlaques(cityCfg.url);
+
 let filtered = all;
 
-// First: restrict to the selected collection
+// First: restrict to the selected city (area)
+if (state.selectedCity) {
+    const city = state.selectedCity.toLowerCase();
+    filtered = filtered.filter(p =>
+        p.area && p.area.toLowerCase() === city
+    );
+}
+
+// Then restrict to the selected collection
 if (state.collection) {
     const col = state.collection.toLowerCase();
     filtered = filtered.filter(p =>
@@ -482,23 +526,13 @@ if (state.collection) {
     );
 }
 
-// Optional extra keyword filter
-if (state.category.trim()) {
-    const term = state.category.toLowerCase().trim();
-    filtered = filtered.filter(p =>
-        (p.title   && p.title.toLowerCase().includes(term))   ||
-        (p.summary && p.summary.toLowerCase().includes(term)) ||
-        (p.bio     && p.bio.toLowerCase().includes(term))
-    );
-}
-
-// 🔧 NEW: keep plaques without coords; only apply radius if we *have* lat/lon
+// Radius filter – keep items without coordinates for now
 const nearby = filtered.filter(p => {
     const hasCoords =
         Number.isFinite(p.latitude) &&
         Number.isFinite(p.longitude);
 
-    if (!hasCoords) return true;  // keep it – we can't distance-check it
+    if (!hasCoords) return true;  // until lat/lon is populated
 
     const dist = Geo.calculateDistance(
         startLoc.latitude,
@@ -508,9 +542,10 @@ const nearby = filtered.filter(p => {
     );
     return dist <= state.radius;
 });
-                    
-                    if (nearby.length === 0) throw new Error(`No places of interest found within ${state.radius} miles.`);
 
+if (nearby.length === 0) {
+    throw new Error(`No places of interest found within ${state.radius} miles.`);
+}
                     // 3. Select & Optimize
                     const shuffled = [...nearby].sort(() => 0.5 - Math.random());
                     let selected = shuffled.slice(0, state.stops);
@@ -866,20 +901,20 @@ updateActionBar: () => {
                 <div class="w-full max-w-md mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 mt-0">
                     <form onsubmit="app.generateTour(event)" class="p-6 space-y-6">
                         <div>
-                          <label class="block text-sm font-medium text-gray-700 mb-2">Select Collection</label>
-                          <select
-                             onchange="app.setCollection(this.value)"
-                             class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plaque-blue bg-white"
-                          >
-                              ${
-                                state.availableCollections.length
-                                  ? state.availableCollections
-                                  .map(c => `<option value="${c}" ${c === state.collection ? 'selected' : ''}>${c}</option>`)
-                                  .join('')
-                                  : '<option disabled>Loading collections…</option>'
-                               }
-                          </select>
-                        </div>
+  <label class="block text-sm font-medium text-gray-700 mb-2">Select City</label>
+  <select
+     onchange="app.setCityFilter(this.value)"
+     class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plaque-blue bg-white"
+  >
+      ${
+        state.availableCities.length
+          ? state.availableCities
+              .map(city => `<option value="${city}" ${city === state.selectedCity ? 'selected' : ''}>${city}</option>`)
+              .join('')
+          : '<option disabled>Loading cities…</option>'
+      }
+  </select>
+</div>
 
 <div>
     <label class="block text-sm font-medium text-gray-700 mb-2">Start Location</label>
@@ -945,12 +980,22 @@ updateActionBar: () => {
 </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Category / Role (Optional)</label>
-                            <input list="cats" type="text" placeholder="e.g. Musician, Poet" value="${state.category}" oninput="app.setCategory(this.value)" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plaque-blue outline-none">
-                            <datalist id="cats">
-                                ${state.availableCategories.map(c => `<option value="${c}">`).join('')}
-                            </datalist>
-                        </div>
+    <label class="block text-sm font-medium text-gray-700 mb-2">
+        Select Collection (Category / Role)
+    </label>
+    <select
+        onchange="app.setCollection(this.value)"
+        class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plaque-blue bg-white"
+    >
+        ${
+          state.availableCollections.length
+            ? state.availableCollections
+                .map(c => `<option value="${c}" ${c === state.collection ? 'selected' : ''}>${c}</option>`)
+                .join('')
+            : '<option disabled>Select a city first…</option>'
+        }
+    </select>
+</div>
 
                         <div class="flex gap-4">
                             <div class="flex-1">
@@ -979,7 +1024,7 @@ updateActionBar: () => {
             },
 
             renderTour: () => {
-                const cityName = CITIES[state.cityIndex]?.name || 'Saved';
+                const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
                 
                 return `
                 <div class="pb-32">
@@ -1129,30 +1174,34 @@ ${plaque.bio ? `
                         around a starting point you choose.
                     </p>
 
-                    <h3 class="text-sm font-semibold text-gray-900 mt-3">1. Pick a collection</h3>
-<p class="text-sm text-gray-700">
-    Choose from the themed collections in the list, such as
-    <strong>Charles Dickens</strong> or <strong>Britpop</strong>.
-    Each collection groups together locations that share a common story.
-</p>
+                    <h3 class="text-sm font-semibold text-gray-900 mt-3">1. Pick a city</h3>
+                    <p class="text-sm text-gray-700">
+                       Start by choosing the city you want to explore from the
+                       <strong>Select City</strong> dropdown.
+                    </p>
 
                     <h3 class="text-sm font-semibold text-gray-900 mt-3">2. Choose where to start</h3>
-<p class="text-sm text-gray-700">
-    <strong>Start now (Current location)</strong> is ideal when you are already out
-    in the city and want the tour to begin where you are standing.
-    <br/><br/>
-    <strong>Plan for later (Address)</strong> is useful when you are planning
-    ahead, meeting friends somewhere specific, or want to centre the walk
-    on a station, square, or landmark.
-</p>
+                    <p class="text-sm text-gray-700">
+                       <strong>Start now (Current location)</strong> is ideal when you are already out
+                       in the city and want the tour to begin where you are standing.
+                    <br/><br/>
+                       <strong>Plan for later (Address)</strong> is useful when you are planning
+                       ahead, meeting friends somewhere specific, or want to centre the walk
+                       on a station, square, or landmark.
+                    </p>
 
                     <h3 class="text-sm font-semibold text-gray-900 mt-3">3. Fine-tune your walk</h3>
                     <p class="text-sm text-gray-700">
                         Use the <strong>Radius</strong> slider to decide how far Curated Tours
                         should look for places of interest around your starting point, and
                         <strong>Stops</strong> to choose how many places you’d like to visit.
-                        You can also type a <strong>Category / Role</strong> such as
-                        “musician”, “writer” or “scientist” if you want a themed walk.
+                    </p>
+
+                    <h3 class="text-sm font-semibold text-gray-900 mt-3">2. Choose a collection</h3>
+                    <p class="text-sm text-gray-700">
+                       Then choose a <strong>Collection (Category / Role)</strong> for that city –
+                       for example <strong>Britpop</strong>, <strong>Charles Dickens</strong> or
+                       any other themed group of locations.
                     </p>
 
                     <h3 class="text-sm font-semibold text-gray-900 mt-3">4. Explore and tweak</h3>
@@ -1163,14 +1212,14 @@ ${plaque.bio ? `
                     </p>
 
                     <h3 class="text-sm font-semibold text-gray-900 mt-3">5. Walk the route</h3>
-<p class="text-sm text-gray-700">
-    Use the cards to read about each place of interest, tap
-    <strong>Listen</strong> for spoken audio, and use
-    <strong>Start in Google Maps</strong> for turn-by-turn directions from
-    wherever you are. If you planned a tour around an address, you can also
-    use <strong>Preview route near planned start</strong> to see how long
-    the walk looks from that area.
-</p>
+                    <p class="text-sm text-gray-700">
+                       Use the cards to read about each place of interest, tap
+                       <strong>Listen</strong> for spoken audio, and use
+                       <strong>Start in Google Maps</strong> for turn-by-turn directions from
+                       wherever you are. If you planned a tour around an address, you can also
+                       use <strong>Preview route near planned start</strong> to see how long
+                       the walk looks from that area.
+                    </p>
                 </div>
                 `;
             },
