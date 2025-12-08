@@ -309,7 +309,7 @@ generateMapsNavUrl: (plaques) => {
 }
         };
 
-  // --- Services: API ---
+// --- Services: API ---
 const Api = {
     fetchPlaques: async (url) => {
         const res = await fetch(url);
@@ -319,27 +319,39 @@ const Api = {
             id: String(item.id ?? `plaque-${idx}`),
             title: item.title || 'Unknown Title',
 
+            // Collection / role
             category: item.lead_subject_primary_role || item.category || '',
+
+            // City / area
             area: item.area || '',
+
             latitude: parseFloat(item.latitude),
             longitude: parseFloat(item.longitude),
             address: item.address || '',
 
-    // ⬇️ summary text shown on screen
+            // ⬇️ summary text shown on screen
             summary: item.inscription ||
                      item.subjects ||
                      item.summary ||
                      item.description ||
-             'No description available.',
+                     'No description available.',
 
-    // ⬇️ long-form bio text – audio only
-                bio: item.lead_subject_bio || ''
+            // ⬇️ long-form bio text – audio only
+            bio: item.lead_subject_bio || ''
         }));
+    },
 
     geocode: async (query) => {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+        const res = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`
+        );
         const data = await res.json();
-        if (data && data.length) return { latitude: parseFloat(data[0].lat), longitude: parseFloat(data[0].lon) };
+        if (data && data.length) {
+            return {
+                latitude: parseFloat(data[0].lat),
+                longitude: parseFloat(data[0].lon)
+            };
+        }
         throw new Error('Location not found');
     }
 };
@@ -430,9 +442,24 @@ const Api = {
             setStops: (val) => { state.stops = parseInt(val); document.getElementById('stops-val').innerText = val; },
 
             setCityFilter: (cityName) => {
-                state.selectedCity = cityName;
-                // ...your existing setCityFilter code...
-            },
+            state.selectedCity = cityName;
+
+            const plaques = state.allPlaques || [];
+            const collectionsSet = new Set(
+                 plaques
+                       .filter(p => !cityName || p.area === cityName)
+                       .map(p => p.category)
+                       .filter(c => c && c.trim())
+              );
+           state.availableCollections = Array.from(collectionsSet).sort();
+
+           // If the previously selected collection doesn’t exist for this city,
+           // default to the first one.
+           if (!state.availableCollections.includes(state.collection)) {
+               state.collection = state.availableCollections[0] || '';
+               }
+           app.render();
+           },
 
             setCollection: (val) => {
                 state.collection = val;
@@ -1118,45 +1145,85 @@ updateActionBar: () => {
             },
 
             renderCard: (plaque, index, total) => {
-                const isStart = index === 0;
-                const isEnd = index === total - 1;
-                const isSel = state.selectedForRemoval.has(plaque.id);
-                
-                let badge = '', label = '', bg = '';
-                if (isStart) { badge = Icons.Play; label = 'Starting Point'; bg = 'bg-green-600'; }
-                else if (isEnd) { badge = Icons.Flag; label = 'Final Stop'; bg = 'bg-gray-800'; }
-                else { badge = String.fromCharCode(65 + (index - 1)); label = `Stop ${index}`; bg = 'bg-plaque-blue'; }
+    const isStart = index === 0;
+    const isEnd = index === total - 1;
+    const isSel = state.selectedForRemoval.has(plaque.id);
 
-                return `
-                <div id="card-${plaque.id}" class="bg-white rounded-xl shadow-md overflow-hidden border-l-4 mb-4 relative group transition-all ${isSel ? 'border-red-500 bg-red-50' : 'border-plaque-blue'}">
-                    <div class="p-5">
-                        <div class="flex justify-between items-start mb-2">
-                            <div class="flex gap-2 items-center">
-                                <div class="${bg} text-white w-8 h-8 flex items-center justify-center rounded-full font-bold shadow-sm flex-shrink-0">${badge}</div>
-                                <div class="flex flex-col">
-                                    <span class="text-xs text-gray-400 font-mono uppercase tracking-wide">${label}</span>
-                                    ${plaque.category ? `<span class="text-xs text-gray-500 font-bold bg-gray-100 px-2 py-0.5 rounded-full inline-block w-max">${plaque.category}</span>` : ''}
-                                </div>
-                            </div>
-                            <label class="flex items-center gap-2 cursor-pointer select-none">
-                                <span id="txt-${plaque.id}" class="text-xs font-bold uppercase ${isSel ? 'text-red-600' : 'text-gray-400 group-hover:text-gray-600'}">${isSel ? 'Remove' : 'Keep'}</span>
-                                <input type="checkbox" ${isSel ? 'checked' : ''} onchange="app.toggleRemove('${plaque.id}', this.checked)" class="w-5 h-5 text-red-600 border-gray-300 rounded focus:ring-red-500">
-                            </label>
+    let badge = '', label = '', bg = '';
+    if (isStart) {
+        badge = Icons.Play;
+        label = 'Starting Point';
+        bg = 'bg-green-600';
+    } else if (isEnd) {
+        badge = Icons.Flag;
+        label = 'Final Stop';
+        bg = 'bg-gray-800';
+    } else {
+        badge = String.fromCharCode(65 + (index - 1));
+        label = `Stop ${index}`;
+        bg = 'bg-plaque-blue';
+    }
+
+    const isCurrentAudio = state.currentSpeechPlaqueId === plaque.id;
+    const isPaused = state.isSpeechPaused && isCurrentAudio;
+    const isPlaying = state.isSpeechPlaying && isCurrentAudio;
+
+    return `
+        <div id="card-${plaque.id}" class="bg-white rounded-xl shadow-md overflow-hidden border-l-4 mb-4 relative group transition-all ${isSel ? 'border-red-500 bg-red-50' : 'border-plaque-blue'}">
+            <div class="p-5">
+                <div class="flex justify-between items-start mb-2">
+                    <div class="flex gap-2 items-center">
+                        <div class="${bg} text-white w-8 h-8 flex items-center justify-center rounded-full font-bold shadow-sm flex-shrink-0">${badge}</div>
+                        <div class="flex flex-col">
+                            <span class="text-xs text-gray-400 font-mono uppercase tracking-wide">${label}</span>
+                            ${plaque.category ? `<span class="text-xs text-gray-500 font-bold bg-gray-100 px-2 py-0.5 rounded-full inline-block w-max">${plaque.category}</span>` : ''}
                         </div>
-
-                        <h3 class="text-lg font-bold text-gray-900 leading-tight mb-2 mt-2 pr-2">${plaque.title}</h3>
-                        <div class="flex items-start text-gray-500 text-sm mb-3">
-                            <span class="mr-1 mt-0.5">${Icons.MapPin}</span>
-                            <span class="font-medium">${plaque.address}</span>
-                        </div>
-                        <p class="text-gray-600 text-sm leading-relaxed mb-4">${plaque.summary}</p>
-
-                        const isCurrentAudio = state.currentSpeechPlaqueId === plaque.id;
-                        const isPaused = state.isSpeechPaused && isCurrentAudio;
                     </div>
-                </div>`;
-            },
+                    <label class="flex items-center gap-2 cursor-pointer select-none">
+                        <span id="txt-${plaque.id}" class="text-xs font-bold uppercase ${isSel ? 'text-red-600' : 'text-gray-400 group-hover:text-gray-600'}">${isSel ? 'Remove' : 'Keep'}</span>
+                        <input type="checkbox" ${isSel ? 'checked' : ''} onchange="app.toggleRemove('${plaque.id}', this.checked)" class="w-5 h-5 text-red-600 border-gray-300 rounded focus:ring-red-500">
+                    </label>
+                </div>
 
+                <h3 class="text-lg font-bold text-gray-900 leading-tight mb-2 mt-2 pr-2">${plaque.title}</h3>
+                <div class="flex items-start text-gray-500 text-sm mb-3">
+                    <span class="mr-1 mt-0.5">${Icons.MapPin}</span>
+                    <span class="font-medium">${plaque.address}</span>
+                </div>
+                <p class="text-gray-600 text-sm leading-relaxed mb-4">${plaque.summary}</p>
+
+                <div class="flex items-center gap-3 border-top border-gray-100 pt-3">
+                    <!-- Main Listen button -->
+                    <button
+                        onclick="app.speak('${plaque.id}')"
+                        class="flex-1 flex items-center justify-center gap-2 py-2 px-3 bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-plaque-blue rounded-lg text-sm font-medium transition-colors"
+                    >
+                        ${Icons.Speaker}
+                        <span>${isCurrentAudio && isPlaying ? 'Restart audio' : 'Listen'}</span>
+                    </button>
+
+                    <!-- Show Pause/Resume + Stop only for the currently playing/paused card -->
+                    ${isCurrentAudio ? `
+                        <button
+                            onclick="app.${isPaused ? 'resumeSpeech' : 'pauseSpeech'}()"
+                            class="flex items-center justify-center gap-1 py-2 px-3 rounded-lg text-xs font-semibold border border-gray-300 bg-white hover:bg-gray-50"
+                        >
+                            ${isPaused ? Icons.Play : Icons.Pause}
+                            <span>${isPaused ? 'Resume' : 'Pause'}</span>
+                        </button>
+                        <button
+                            onclick="app.stopSpeech()"
+                            class="flex items-center justify-center gap-1 py-2 px-3 rounded-lg text-xs font-semibold border border-red-400 text-red-600 bg-white hover:bg-red-50"
+                        >
+                            ${Icons.Stop}
+                            <span>Stop</span>
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        </div>
+    `;
+},
             renderFavorites: () => {
                 const tours = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
                 return `
