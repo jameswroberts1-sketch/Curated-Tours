@@ -316,25 +316,22 @@ const Api = {
             id: String(item.id ?? `plaque-${idx}`),
             title: item.title || 'Unknown Title',
 
-            // Collection = lead_subject_primary_role
             category: item.lead_subject_primary_role || item.category || '',
-
-            // City / area
             area: item.area || '',
-
             latitude: parseFloat(item.latitude),
             longitude: parseFloat(item.longitude),
             address: item.address || '',
 
-            summary: item.subjects ||
+    // ⬇️ summary text shown on screen
+            summary: item.inscription ||
+                     item.subjects ||
                      item.summary ||
-                     item.inscription ||
                      item.description ||
-                     'No description available.',
+             'No description available.',
 
-            bio: item.lead_subject_bio || ''
+    // ⬇️ long-form bio text – audio only
+                bio: item.lead_subject_bio || ''
         }));
-    },
 
     geocode: async (query) => {
         const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
@@ -648,7 +645,7 @@ speak: (plaqueId) => {
     window.speechSynthesis.cancel();
 
     // Build the text from data we already have (title + summary + bio)
-    const baseText = `${plaque.title}. ${plaque.summary || ''} ${plaque.bio || ''}`;
+    const baseText = `${plaque.title}. ${plaque.bio || plaque.summary || ''}`;
     const text = baseText.trim();
     if (!text) {
         alert('No description available to read for this place of interest.');
@@ -1111,14 +1108,6 @@ updateActionBar: () => {
                             <span class="font-medium">${plaque.address}</span>
                         </div>
                         <p class="text-gray-600 text-sm leading-relaxed mb-4">${plaque.summary}</p>
-
-${plaque.bio ? `
-<div class="mb-4 bg-gray-50 p-3 rounded-lg border border-gray-100 text-sm">
-    <p class="text-xs font-bold text-gray-400 mb-1">BIOGRAPHY SYNOPSIS</p>
-    <p class="text-gray-700 leading-relaxed text-xs">
-        ${plaque.bio}
-    </p>
-</div>` : ''}
 
                         <div class="flex items-center gap-3 border-t border-gray-100 pt-3">
                             <button onclick="app.speak('${plaque.id}')" class="flex-1 flex items-center justify-center gap-2 py-2 px-3 bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-plaque-blue rounded-lg text-sm font-medium transition-colors">
