@@ -306,9 +306,62 @@ generateMapsNavUrl: (plaques) => {
     if (waypoints) url += `&waypoints=${waypoints}`;
 
     return url;
-}
-        };
+},
 
+// NEW: find densest cluster of plaques within a radius
+findBestCluster: (plaques, radiusMiles) => {
+    // Only plaques with coordinates
+    const points = plaques.filter(p =>
+        Number.isFinite(p.latitude) && Number.isFinite(p.longitude)
+    );
+
+    if (!points.length) {
+        return { center: null, members: [] };
+    }
+
+    let bestIndex = 0;
+    let bestCount = 1;
+
+    // O(n²) – fine for a few hundred points
+    for (let i = 0; i < points.length; i++) {
+        const pivot = points[i];
+        let count = 0;
+
+        for (let j = 0; j < points.length; j++) {
+            const other = points[j];
+            const dist = Geo.calculateDistance(
+                pivot.latitude,
+                pivot.longitude,
+                other.latitude,
+                other.longitude
+            );
+            if (dist <= radiusMiles) count++;
+        }
+
+        if (count > bestCount) {
+            bestCount = count;
+            bestIndex = i;
+        }
+    }
+
+    const centerPlaque = points[bestIndex];
+    const center = {
+        latitude: centerPlaque.latitude,
+        longitude: centerPlaque.longitude
+    };
+
+    const members = points.filter(p =>
+        Geo.calculateDistance(
+            center.latitude,
+            center.longitude,
+            p.latitude,
+            p.longitude
+        ) <= radiusMiles
+    );
+
+    return { center, members };
+}
+};
 // --- Speech synthesis voice selection ---
 let preferredVoice = null;
 
@@ -383,19 +436,44 @@ const Api = {
         }));
     },
 
-    geocode: async (query) => {
-        const res = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`
-        );
-        const data = await res.json();
-        if (data && data.length) {
-            return {
-                latitude: parseFloat(data[0].lat),
-                longitude: parseFloat(data[0].lon)
-            };
-        }
-        throw new Error('Location not found');
+geocode: async (query) => {
+    const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`
+    );
+    const data = await res.json();
+    if (data && data.length) {
+        return {
+            latitude: parseFloat(data[0].lat),
+            longitude: parseFloat(data[0].lon)
+        };
     }
+    throw new Error('Location not found');
+},
+
+// NEW: reverse geocoding for startHint / display text
+reverseGeocode: async (loc) => {
+    const { latitude, longitude } = loc;
+
+    const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=16&addressdetails=1`
+    );
+    const data = await res.json();
+
+    if (data && data.display_name) {
+        return data.display_name;
+    }
+
+    if (data && data.address) {
+        const { road, suburb, city, town, village, state, postcode } = data.address;
+        const line = [road, suburb || city || town || village, state, postcode]
+            .filter(Boolean)
+            .join(', ');
+        if (line) return line;
+    }
+
+    // Fallback to raw coords if nothing nicer
+    return `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+}
 };
         // --- Icons (SVG Strings) ---
         const Icons = {
@@ -667,91 +745,112 @@ loadCategories: async () => {
     }
 },
 
-            // Logic: Generate Tour
-            generateTour: async (e) => {
-                if (e) e.preventDefault();
-                state.loading = true;
-                state.error = null;
-                app.render();
+generateTour: async (e) => {
+    if (e) e.preventDefault();
+    state.loading = true;
+    state.error = null;
+    app.render();
 
-                const city = CITIES[state.cityIndex];
-                try {
-                    // 1. Location
-let startLoc;
-if (state.locationMethod === 'GPS') {
-    startLoc = await Geo.getCurrentPosition();
-} else {
-    const q = state.manualAddress;   // <— change to this
-    startLoc = await Api.geocode(q);
-}
-                    state.userLocation = startLoc;
+    const cityCfg = CITIES[state.cityIndex];
 
-// 2. Fetch & Filter
-const cityCfg = CITIES[state.cityIndex];
-const all = state.allPlaques && state.allPlaques.length
-    ? state.allPlaques
-    : await Api.fetchPlaques(cityCfg.url);
+    try {
+        // 1. Base plaque set: city + collection
+        const all = state.allPlaques && state.allPlaques.length
+            ? state.allPlaques
+            : await Api.fetchPlaques(cityCfg.url);
 
-let filtered = all;
+        let filtered = all;
 
-// First: restrict to the selected city (area)
-if (state.selectedCity) {
-    const city = state.selectedCity.toLowerCase();
-    filtered = filtered.filter(p =>
-        p.area && p.area.toLowerCase() === city
-    );
-}
+        // City filter
+        if (state.selectedCity) {
+            const cityName = state.selectedCity.toLowerCase();
+            filtered = filtered.filter(p =>
+                p.area && p.area.toLowerCase() === cityName
+            );
+        }
 
-// Then restrict to the selected collection
-if (state.collection) {
-    const col = state.collection.toLowerCase();
-    filtered = filtered.filter(p =>
-        p.category && p.category.toLowerCase() === col
-    );
-}
+        // Collection filter
+        if (state.collection) {
+            const col = state.collection.toLowerCase();
+            filtered = filtered.filter(p =>
+                p.category && p.category.toLowerCase() === col
+            );
+        }
 
-// Radius filter – keep items without coordinates for now
-const nearby = filtered.filter(p => {
-    const hasCoords =
-        Number.isFinite(p.latitude) &&
-        Number.isFinite(p.longitude);
+        if (!filtered.length) {
+            throw new Error('No places of interest found for this city / collection.');
+        }
 
-    if (!hasCoords) return true;  // until lat/lon is populated
+        let startLoc;
+        let nearby = [];
 
-    const dist = Geo.calculateDistance(
-        startLoc.latitude,
-        startLoc.longitude,
-        p.latitude,
-        p.longitude
-    );
-    return dist <= state.radius;
-});
+        if (state.locationMethod === 'GPS') {
+            // --- START NOW: centre on the user and keep within radius ---
+            startLoc = await Geo.getCurrentPosition();
+            state.userLocation = startLoc;
 
-if (nearby.length === 0) {
-    throw new Error(`No places of interest found within ${state.radius} miles.`);
-}
-                    // 3. Select & Optimize
-                    const shuffled = [...nearby].sort(() => 0.5 - Math.random());
-                    let selected = shuffled.slice(0, state.stops);
-                    selected = Geo.optimizeRoute(startLoc, selected);
+            nearby = filtered.filter(p => {
+                const hasCoords = Number.isFinite(p.latitude) && Number.isFinite(p.longitude);
+                if (!hasCoords) return false;
+                const dist = Geo.calculateDistance(
+                    startLoc.latitude,
+                    startLoc.longitude,
+                    p.latitude,
+                    p.longitude
+                );
+                return dist <= state.radius;
+            });
 
-                    state.isPlanned = (state.locationMethod === 'MANUAL');
-                    state.startHint = state.locationMethod === 'MANUAL'
-                        ? (state.manualAddress || CITIES[state.cityIndex].exampleAddress || '')
-                        : 'Your current location';
-                    state.candidatePlaques = nearby;
-                    state.activeTour = selected;
-                    state.selectedForRemoval = new Set();
-                    state.playedPlaques = new Set();
-                    state.view = 'TOUR';
-                } catch (err) {
-                    state.error = err.message || 'Error generating tour';
-                } finally {
-                    state.loading = false;
-                    app.render();
-                }
-            },
+            state.isPlanned = false;
+        } else {
+            // --- PLAN FOR LATER: find best cluster anywhere in the city ---
+            const { center, members } = Geo.findBestCluster(filtered, state.radius);
 
+            if (!center || !members.length) {
+                throw new Error(`No suitable cluster found within ${state.radius} miles for this collection.`);
+            }
+
+            startLoc = center;
+            state.userLocation = startLoc;
+            nearby = members;
+            state.isPlanned = true;
+        }
+
+        if (!nearby.length) {
+            throw new Error(`No places of interest found within ${state.radius} miles.`);
+        }
+
+        // 2. Select & optimise tour
+        const shuffled = [...nearby].sort(() => 0.5 - Math.random());
+        let selected = shuffled.slice(0, state.stops);
+        selected = Geo.optimizeRoute(startLoc, selected);
+
+        state.candidatePlaques = nearby;
+        state.activeTour = selected;
+        state.selectedForRemoval = new Set();
+        state.playedPlaques = new Set();
+        state.view = 'TOUR';
+
+        // 3. Compute a friendly startHint
+        if (state.isPlanned) {
+            try {
+                const suggestedAddress = await Api.reverseGeocode(startLoc);
+                state.startHint = suggestedAddress;
+            } catch (err) {
+                console.warn('Reverse geocoding failed, falling back', err);
+                state.startHint = cityCfg.exampleAddress || state.selectedCity || '';
+            }
+        } else {
+            state.startHint = 'Your current location';
+        }
+
+    } catch (err) {
+        state.error = err.message || 'Error generating tour';
+    } finally {
+        state.loading = false;
+        app.render();
+    }
+},
             // Logic: Regenerate (Swap)
             toggleRemove: (id, checked) => {
                 if (checked) state.selectedForRemoval.add(id);
@@ -1054,72 +1153,60 @@ updateActionBar: () => {
                 </select>
             </div>
 
-            <!-- 3. Start location -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Start Location</label>
-                <div class="flex gap-2 mb-3">
-                    <button
-                        type="button"
-                        onclick="app.setMethod('GPS')"
-                        class="flex-1 py-2 px-3 text-xs font-medium rounded-2xl transition-all shadow-sm ${
-                            state.locationMethod === 'GPS'
-                                ? 'bg-plaque-blue text-white'
-                                : 'bg-red-600 text-white'
-                        }"
-                    >
-                        <span class="block text-sm font-semibold leading-tight">
-                            Start now
-                        </span>
-                        <span class="block text-[0.7rem] leading-tight opacity-80">
-                            Current location
-                        </span>
-                    </button>
+            <!-- 3. Walking mode -->
+<div>
+    <label class="block text-sm font-medium text-gray-700 mb-2">
+        When are you walking?
+    </label>
+    <div class="flex gap-2 mb-2">
+        <button
+            type="button"
+            onclick="app.setMethod('GPS')"
+            class="flex-1 py-2 px-3 text-xs font-medium rounded-2xl transition-all shadow-sm ${
+                state.locationMethod === 'GPS'
+                    ? 'bg-plaque-blue text-white'
+                    : 'bg-red-600 text-white'
+            }"
+        >
+            <span class="block text-sm font-semibold leading-tight">
+                Start now
+            </span>
+            <span class="block text-[0.7rem] leading-tight opacity-80">
+                Use my current location
+            </span>
+        </button>
 
-                    <button
-                        type="button"
-                        onclick="app.setMethod('MANUAL')"
-                        class="flex-1 py-2 px-3 text-xs font-medium rounded-2xl transition-all shadow-sm ${
-                            state.locationMethod === 'MANUAL'
-                                ? 'bg-plaque-blue text-white'
-                                : 'bg-red-600 text-white'
-                        }"
-                    >
-                        <span class="block text-sm font-semibold leading-tight">
-                            Plan for later
-                        </span>
-                        <span class="block text-[0.7rem] leading-tight opacity-80">
-                            Choose start point
-                        </span>
-                    </button>
-                </div>
+        <button
+            type="button"
+            onclick="app.setMethod('MANUAL')"
+            class="flex-1 py-2 px-3 text-xs font-medium rounded-2xl transition-all shadow-sm ${
+                state.locationMethod === 'MANUAL'
+                    ? 'bg-plaque-blue text-white'
+                    : 'bg-red-600 text-white'
+            }"
+        >
+            <span class="block text-sm font-semibold leading-tight">
+                Plan for later
+            </span>
+            <span class="block text-[0.7rem] leading-tight opacity-80">
+                Suggest a good starting area
+            </span>
+        </button>
+    </div>
 
-                ${
-                    state.locationMethod === 'MANUAL' ? `
-                        <input
-                            type="text"
-                            placeholder="e.g., ${CITIES[state.cityIndex].exampleAddress || 'Baker Street'}"
-                            value="${state.manualAddress}"
-                            oninput="app.setAddress(this.value)"
-                            required
-                            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plaque-blue outline-none"
-                        >
-                    ` : ''
-                }
-
-                ${
-                    state.locationMethod === 'GPS'
-                        ? `<p class="mt-2 text-xs text-gray-500">
-                                Use this when you’re already out in the city and want your walk
-                                to begin from where you’re standing right now.
-                           </p>`
-                        : `<p class="mt-2 text-xs text-gray-500">
-                                Use this to <strong>plan a tour for the future</strong>. When you’re
-                                ready to do it, make your way towards this address or landmark,
-                                open your saved tour in Curated Tours, and start the route from there.
-                           </p>`
-                }
-            </div>
-
+    ${
+        state.locationMethod === 'GPS'
+            ? `<p class="mt-1 text-xs text-gray-500">
+                    Ideal when you’re already out in the city.
+                    We’ll build a walk starting from where you are now.
+               </p>`
+            : `<p class="mt-1 text-xs text-gray-500">
+                    Perfect for planning ahead. We’ll find a tight cluster of
+                    places for this collection in your chosen city and
+                    suggest a clear starting area.
+               </p>`
+    }
+</div>
             <!-- 4. Radius / stops sliders -->
             <div class="flex gap-4">
                 <div class="flex-1">
@@ -1151,50 +1238,61 @@ updateActionBar: () => {
 },
 
             renderTour: () => {
-                const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
-                
-                return `
-                <div class="pb-32">
-                    <div class="flex items-center justify-between mb-4">
-                        <button onclick="app.goHome()" class="flex items-center text-gray-600 hover:text-plaque-blue font-medium transition-colors">
-                            ${Icons.ArrowLeft} <span class="ml-1">New Search</span>
-                        </button>
-                        <div class="text-right">
-                            <h2 class="text-lg font-bold text-gray-900">${cityName} Tour</h2>
-                            <p class="text-xs text-gray-500">${state.activeTour.length} Locations</p>
-                        </div>
-                    </div>
+    const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
 
-                    ${state.isPlanned && state.startHint ? `
-    <div class="mb-4 bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded-r-lg text-xs text-gray-800">
-        <p class="font-semibold mb-1">Planned tour</p>
-        <p>
-            This tour was set up around
-            <span class="font-semibold">${state.startHint}</span>.
-            When you’re ready to walk it, make your way towards that area,
-            then tap <strong>“Start in Google Maps”</strong> below to
-            start from where you are.
-        </p>
+    const startNote = state.isPlanned
+        ? `
+        <div class="mb-4 bg-blue-50 border-l-4 border-plaque-blue p-3 rounded-r-lg text-xs text-gray-800">
+            <p class="font-semibold mb-1">Suggested starting area</p>
+            <p>
+                This tour has been centred on a cluster of places for this collection.
+                Begin your walk near
+                <span class="font-semibold">${state.startHint || 'the suggested starting point'}</span>,
+                then follow the stops in order.
+            </p>
+        </div>
+        `
+        : `
+        <div class="mb-4 bg-green-50 border-l-4 border-green-500 p-3 rounded-r-lg text-xs text-gray-800">
+            <p class="font-semibold mb-1">Start from where you are</p>
+            <p>
+                This tour uses <span class="font-semibold">your current location</span> as the starting point.
+                When you tap <strong>&quot;Start in Google Maps&quot;</strong> below,
+                directions will begin from where you are standing.
+            </p>
+        </div>
+        `;
+
+    return `
+    <div class="pb-32">
+        <div class="flex items-center justify-between mb-4">
+            <button onclick="app.goHome()" class="flex items-center text-gray-600 hover:text-plaque-blue font-medium transition-colors">
+                ${Icons.ArrowLeft} <span class="ml-1">New Search</span>
+            </button>
+            <div class="text-right">
+                <h2 class="text-lg font-bold text-gray-900">${cityName} Tour</h2>
+                <p class="text-xs text-gray-500">${state.activeTour.length} Locations</p>
+            </div>
+        </div>
+
+        ${startNote}
+
+        <div class="mb-6 flex justify-end">
+            <button onclick="app.toggleAutoPlay()" class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm border ${state.isAutoPlay ? 'bg-plaque-blue text-white border-plaque-blue' : 'bg-white text-gray-500 border-gray-300'}">
+                ${Icons.SpeakerWave(state.isAutoPlay)} Auto Guide: ${state.isAutoPlay ? 'ON' : 'OFF'}
+            </button>
+        </div>
+
+        <div class="space-y-4">
+            ${state.activeTour.map((p, i) => app.renderCard(p, i, state.activeTour.length)).join('')}
+        </div>
+
+        <div id="action-bar" class="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-[0_-5px_10px_rgba(0,0,0,0.05)] z-10 flex flex-col gap-3">
+            ${/* Filled by updateActionBar after render() */ ''}
+        </div>
     </div>
-` : ''}
-
-                    <div class="mb-6 flex justify-end">
-                        <button onclick="app.toggleAutoPlay()" class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm border ${state.isAutoPlay ? 'bg-plaque-blue text-white border-plaque-blue' : 'bg-white text-gray-500 border-gray-300'}">
-                            ${Icons.SpeakerWave(state.isAutoPlay)} Auto Guide: ${state.isAutoPlay ? 'ON' : 'OFF'}
-                        </button>
-                    </div>
-
-                    <div class="space-y-4">
-                        ${state.activeTour.map((p, i) => app.renderCard(p, i, state.activeTour.length)).join('')}
-                    </div>
-
-                    <div id="action-bar" class="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-[0_-5px_10px_rgba(0,0,0,0.05)] z-10 flex flex-col gap-3">
-                        ${/* Initial render of action bar */ ''}
-                    </div>
-                </div>
-                `;
-            },
-
+    `;
+},
             renderCard: (plaque, index, total) => {
     const isStart = index === 0;
     const isEnd = index === total - 1;
