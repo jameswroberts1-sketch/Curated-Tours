@@ -129,7 +129,10 @@ const state = {
     bioCache: {},
     isPlanned: false,
     startHint: '',
-    allPlaques: []         // NEW: cache of everything from Collections.json
+    allPlaques: [],         // NEW: cache of everything from Collections.json
+    currentSpeechPlaqueId: null,
+    isSpeechPlaying: false,
+    isSpeechPaused: false
 };
 
         // --- Services: Geo ---
@@ -379,6 +382,16 @@ const Api = {
                           <path stroke-linecap="round" stroke-linejoin="round"
                                 d="M11.48 3.499a.75.75 0 0 1 1.04 0l2.122 2.122 3.004.437a.75.75 0 0 1 .416 1.28l-2.173 2.119.513 3a.75.75 0 0 1-1.088.791L12 12.97l-2.714 1.427a.75.75 0 0 1-1.088-.79l.513-3-2.173-2.12a.75.75 0 0 1 .416-1.279l3.004-.437z" />
                        </svg>`,
+
+            Pause: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                          fill="currentColor" class="w-4 h-4">
+                        <path d="M6.75 5.25h2.5a.75.75 0 0 1 .75.75v12a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1-.75-.75v-12a.75.75 0 0 1 .75-.75zm8 0h2.5a.75.75 0 0 1 .75.75v12a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1-.75-.75v-12a.75.75 0 0 1 .75-.75z" />
+                    </svg>`,
+
+            Stop: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                          fill="currentColor" class="w-4 h-4">
+                        <path d="M6.75 5.25h10.5a1.5 1.5 0 0 1 1.5 1.5v10.5a1.5 1.5 0 0 1-1.5 1.5H6.75a1.5 1.5 0 0 1-1.5-1.5V6.75a1.5 1.5 0 0 1 1.5-1.5z" />
+                    </svg>`,
         };
 
         // --- Application Controller ---
@@ -397,7 +410,6 @@ const Api = {
 
             // View Switchers
             goHome: () => {
-                // “New Search” – clear current tour and go back to generator
                 state.view = 'HOME';
                 state.activeTour = [];
                 state.selectedForRemoval = new Set();
@@ -412,34 +424,130 @@ const Api = {
             },
 
             // Update State Actions
-setMethod: (method) => { state.locationMethod = method; app.render(); },
-setAddress: (val) => { state.manualAddress = val; },
-setRadius: (val) => { state.radius = parseFloat(val); document.getElementById('radius-val').innerText = val + ' mi'; },
-setStops: (val) => { state.stops = parseInt(val); document.getElementById('stops-val').innerText = val; },
+            setMethod: (method) => { state.locationMethod = method; app.render(); },
+            setAddress: (val) => { state.manualAddress = val; },
+            setRadius: (val) => { state.radius = parseFloat(val); document.getElementById('radius-val').innerText = val + ' mi'; },
+            setStops: (val) => { state.stops = parseInt(val); document.getElementById('stops-val').innerText = val; },
 
-setCityFilter: (cityName) => {
-    state.selectedCity = cityName;
+            setCityFilter: (cityName) => {
+                state.selectedCity = cityName;
+                // ...your existing setCityFilter code...
+            },
 
-    const plaques = state.allPlaques || [];
-    const collectionsSet = new Set(
-        plaques
-            .filter(p => !cityName || p.area === cityName)
-            .map(p => p.category)
-            .filter(c => c && c.trim())
-    );
-    state.availableCollections = Array.from(collectionsSet).sort();
+            setCollection: (val) => {
+                state.collection = val;
+                app.render();
+            },
 
-    if (!state.availableCollections.includes(state.collection)) {
-        state.collection = state.availableCollections[0] || '';
-    }
+            // ------------------
+            // AUDIO LOGIC
+            // ------------------
+            speak: (plaqueId) => {
+                const plaque = state.activeTour.find(p => p.id === plaqueId);
+                if (!plaque) return;
 
-    app.render();
-},
+                if (!('speechSynthesis' in window)) {
+                    alert('Spoken audio is not supported on this device/browser.');
+                    return;
+                }
 
-setCollection: (val) => {
-    state.collection = val;
-    app.render();
-},
+                // Stop anything currently speaking first
+                window.speechSynthesis.cancel();
+
+                const baseText = `${plaque.title}. ${plaque.bio || plaque.summary || ''}`;
+                const text = baseText.trim();
+                if (!text) {
+                    alert('No description available to read for this place of interest.');
+                    return;
+                }
+
+                const utterance = new SpeechSynthesisUtterance(text);
+
+                utterance.rate = 0.95;
+                utterance.pitch = 1.05;
+                utterance.volume = 1.0;
+
+                utterance.onstart = () => {
+                    state.currentSpeechPlaqueId = plaqueId;
+                    state.isSpeechPlaying = true;
+                    state.isSpeechPaused = false;
+                    app.render();
+                };
+
+                utterance.onend = () => {
+                    state.isSpeechPlaying = false;
+                    state.isSpeechPaused = false;
+                    state.currentSpeechPlaqueId = null;
+                    app.render();
+                };
+
+                utterance.onerror = (e) => {
+                    console.error('Speech error', e);
+                    state.isSpeechPlaying = false;
+                    state.isSpeechPaused = false;
+                    state.currentSpeechPlaqueId = null;
+                    app.render();
+                };
+
+                window.speechSynthesis.speak(utterance);
+            },
+
+            pauseSpeech: () => {
+                if (!('speechSynthesis' in window)) return;
+                window.speechSynthesis.pause();
+                state.isSpeechPlaying = false;
+                state.isSpeechPaused = true;
+                app.render();
+            },
+
+            resumeSpeech: () => {
+                if (!('speechSynthesis' in window)) return;
+                window.speechSynthesis.resume();
+                state.isSpeechPlaying = true;
+                state.isSpeechPaused = false;
+                app.render();
+            },
+
+            stopSpeech: () => {
+                if (!('speechSynthesis' in window)) return;
+                window.speechSynthesis.cancel();
+                state.isSpeechPlaying = false;
+                state.isSpeechPaused = false;
+                state.currentSpeechPlaqueId = null;
+                app.render();
+            },
+
+            toggleAutoPlay: () => {
+                state.isAutoPlay = !state.isAutoPlay;
+                if (state.isAutoPlay) app.startAudioWatch();
+                else app.stopAudioWatch();
+                app.render();
+            },
+
+            startAudioWatch: () => {
+                if (!navigator.geolocation) return;
+                app.stopAudioWatch();
+                state.watchId = navigator.geolocation.watchPosition(pos => {
+                    const uLat = pos.coords.latitude;
+                    const uLng = pos.coords.longitude;
+                    state.activeTour.forEach(p => {
+                        if (state.playedPlaques.has(p.id)) return;
+                        const dist = Geo.calculateDistance(uLat, uLng, p.latitude, p.longitude);
+                        if (dist <= AUDIO_TRIGGER_DISTANCE) {
+                            state.playedPlaques.add(p.id);
+                            app.speak(p.id);
+                        }
+                    });
+                }, err => console.error(err), { enableHighAccuracy: true });
+            },
+
+            stopAudioWatch: () => {
+                if (state.watchId !== null) {
+                    navigator.geolocation.clearWatch(state.watchId);
+                    state.watchId = null;
+                }
+            },
+
             // Logic: Load Collections (and feed autocomplete)
 loadCategories: async () => {
     const cityCfg = CITIES[state.cityIndex]; // still just the Collections.json entry
@@ -630,72 +738,6 @@ if (nearby.length === 0) {
     state.selectedForRemoval = new Set();
     app.render();
 },         
-
-            // Logic: Audio
-speak: (plaqueId) => {
-    const plaque = state.activeTour.find(p => p.id === plaqueId);
-    if (!plaque) return;
-
-    if (!('speechSynthesis' in window)) {
-        alert('Spoken audio is not supported on this device/browser.');
-        return;
-    }
-
-    // Stop anything currently speaking
-    window.speechSynthesis.cancel();
-
-    // Build the text from data we already have (title + summary + bio)
-    const baseText = `${plaque.title}. ${plaque.bio || plaque.summary || ''}`;
-    const text = baseText.trim();
-    if (!text) {
-        alert('No description available to read for this place of interest.');
-        return;
-    }
-
-    const utterance = new SpeechSynthesisUtterance(text);
-
-    // Optional: tweak how it sounds
-    utterance.rate = 0.95;   // slightly slower
-    utterance.pitch = 1.05;  // a touch brighter
-    utterance.volume = 1.0;
-
-    utterance.onstart = () => console.log('Speech started');
-    utterance.onend = () => console.log('Speech ended');
-    utterance.onerror = (e) => console.error('Speech error', e);
-
-    window.speechSynthesis.speak(utterance);
-},
-            toggleAutoPlay: () => {
-                state.isAutoPlay = !state.isAutoPlay;
-                if (state.isAutoPlay) app.startAudioWatch();
-                else app.stopAudioWatch();
-                app.render();
-            },
-
-            startAudioWatch: () => {
-                if (!navigator.geolocation) return;
-                app.stopAudioWatch();
-                state.watchId = navigator.geolocation.watchPosition(pos => {
-                    const uLat = pos.coords.latitude;
-                    const uLng = pos.coords.longitude;
-                    state.activeTour.forEach(p => {
-                        if (state.playedPlaques.has(p.id)) return;
-                        const dist = Geo.calculateDistance(uLat, uLng, p.latitude, p.longitude);
-                        if (dist <= AUDIO_TRIGGER_DISTANCE) {
-                            state.playedPlaques.add(p.id);
-                            app.speak(p.id);
-                        }
-                    });
-                }, err => console.error(err), { enableHighAccuracy: true });
-            },
-
-            stopAudioWatch: () => {
-                if (state.watchId !== null) {
-                    navigator.geolocation.clearWatch(state.watchId);
-                    state.watchId = null;
-                }
-            },
-
             // Logic: Favorites
             saveTour: () => {
     if (!state.activeTour.length) return;
@@ -1109,11 +1151,8 @@ updateActionBar: () => {
                         </div>
                         <p class="text-gray-600 text-sm leading-relaxed mb-4">${plaque.summary}</p>
 
-                        <div class="flex items-center gap-3 border-t border-gray-100 pt-3">
-                            <button onclick="app.speak('${plaque.id}')" class="flex-1 flex items-center justify-center gap-2 py-2 px-3 bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-plaque-blue rounded-lg text-sm font-medium transition-colors">
-                                ${Icons.Speaker} Listen
-                            </button>
-                        </div>
+                        const isCurrentAudio = state.currentSpeechPlaqueId === plaque.id;
+                        const isPaused = state.isSpeechPaused && isCurrentAudio;
                     </div>
                 </div>`;
             },
