@@ -309,6 +309,48 @@ generateMapsNavUrl: (plaques) => {
 }
         };
 
+// --- Speech synthesis voice selection ---
+let preferredVoice = null;
+
+function choosePreferredVoice() {
+    if (!('speechSynthesis' in window)) return null;
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices || !voices.length) return null;
+
+    // 1. Try an explicitly "UK English Female" style voice name
+    const explicitUkFemale = voices.find(v =>
+        /UK English Female/i.test(v.name)
+    );
+
+    // 2. Any en-GB voice whose name looks like it might be female
+    const enGbFemale = voices.find(v =>
+        v.lang === 'en-GB' && /female|woman|girl/i.test(v.name)
+    );
+
+    // 3. Any en-GB voice
+    const enGb = voices.find(v => v.lang === 'en-GB');
+
+    // 4. Any English voice
+    const anyEnglish = voices.find(v => v.lang && v.lang.startsWith('en'));
+
+    return explicitUkFemale || enGbFemale || enGb || anyEnglish || voices[0];
+}
+
+function initVoiceSupport() {
+    if (!('speechSynthesis' in window)) return;
+
+    const assign = () => {
+        preferredVoice = choosePreferredVoice();
+        // console.log('Chosen voice:', preferredVoice);
+    };
+
+    // Try immediately
+    assign();
+
+    // Some browsers load voices async
+    window.speechSynthesis.onvoiceschanged = assign;
+}
+
 // --- Services: API ---
 const Api = {
     fetchPlaques: async (url) => {
@@ -409,6 +451,7 @@ const Api = {
         // --- Application Controller ---
         const app = {
             init: () => {
+                initVoiceSupport();
                 app.loadCategories();
                 app.render();
             },
@@ -490,14 +533,22 @@ const Api = {
 
                 const utterance = new SpeechSynthesisUtterance(text);
 
-                utterance.rate = 0.95;
-                utterance.pitch = 1.05;
-                utterance.volume = 1.0;
+                // Prefer our chosen English female / UK voice if available
+                if (preferredVoice) {
+                    utterance.voice = preferredVoice;
+                    utterance.lang = preferredVoice.lang || 'en-GB';
+                } else {
+                    utterance.lang = 'en-GB';
+                }
 
-                utterance.onstart = () => {
-                    state.currentSpeechPlaqueId = plaqueId;
-                    state.isSpeechPlaying = true;
-                    state.isSpeechPaused = false;
+// Slightly slower / warmer delivery
+                    utterance.rate = 0.95;
+                    utterance.pitch = 1.0;
+                    utterance.volume = 1.0;
+                    utterance.onstart = () => {
+                      state.currentSpeechPlaqueId = plaqueId;
+                      state.isSpeechPlaying = true;
+                      state.isSpeechPaused = false;
                     app.render();
                 };
 
