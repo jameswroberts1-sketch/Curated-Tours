@@ -1142,48 +1142,93 @@ generateTour: async (e) => {
 },         
 
             // Logic: Favorites
-            saveTour: () => {
-    if (!state.activeTour.length) return;
+saveTour: () => {
+  if (!state.activeTour.length) return;
 
-    const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
+  const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
 
-    // Sensible default name
-    const defaultName = state.isPlanned
-        ? `${cityName} – ${state.startHint || 'planned walk'}`
-        : `${cityName} walk`;
+  // Sensible default name
+  const defaultName = state.isPlanned
+    ? `${cityName} – ${state.startHint || 'planned walk'}`
+    : `${cityName} walk`;
 
-    const name = (prompt('Give this tour a name:', defaultName) || defaultName).trim();
+  const name = (prompt('Give this tour a name:', defaultName) || defaultName).trim();
 
-    const tour = {
-        id: Date.now().toString(),
-        name,
-        date: new Date().toISOString(),
-        cityName,
-        plaques: state.activeTour,
-        isPlanned: state.isPlanned,
-        startHint: state.startHint
-    };
+  const tour = {
+    id: Date.now().toString(),
+    name,
+    date: new Date().toISOString(),
+    cityName,
+    plaques: state.activeTour,
+    isPlanned: state.isPlanned,
+    startHint: state.startHint,
 
-    const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([tour, ...existing]));
-    alert('Tour saved!');
+    // NEW: payment + stats
+    isPaid: state.view === 'TOUR',              // saved from TOUR = already unlocked
+    tourDistanceMiles: state.tourDistanceMiles,
+    tourTotalMinutes: state.tourTotalMinutes,
+    tourPrice: state.tourPrice
+  };
+
+  const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  localStorage.setItem(STORAGE_KEY, JSON.stringify([tour, ...existing]));
+  alert('Tour saved!');
 },
 
-    loadTour: (id) => {
-    const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    const tour = existing.find(t => t.id === id);
-    if (tour) {
-        state.activeTour = tour.plaques;
-        state.candidatePlaques = []; // Can't regenerate properly on saved
-        state.stops = tour.plaques.length;
-        state.view = 'TOUR';
+loadTour: (id) => {
+  const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  const tour = existing.find(t => t.id === id);
+  if (!tour) return;
 
-        // restore planning info
-        state.isPlanned = !!tour.isPlanned;
-        state.startHint = tour.startHint || '';
+  state.activeTour = tour.plaques || [];
+  state.candidatePlaques = []; // can't regenerate properly on saved (for now)
+  state.stops = state.activeTour.length;
 
-        app.render();
+  // restore planning info
+  state.isPlanned = !!tour.isPlanned;
+  state.startHint = tour.startHint || '';
+
+  // --- restore stats / price, with sensible fallbacks ---
+
+  if (typeof tour.tourDistanceMiles === 'number') {
+    state.tourDistanceMiles = tour.tourDistanceMiles;
+  } else {
+    // fallback: distance between consecutive plaques
+    let dist = 0;
+    for (let i = 1; i < state.activeTour.length; i++) {
+      const a = state.activeTour[i - 1];
+      const b = state.activeTour[i];
+      if (
+        Number.isFinite(a.latitude) && Number.isFinite(a.longitude) &&
+        Number.isFinite(b.latitude) && Number.isFinite(b.longitude)
+      ) {
+        dist += Geo.calculateDistance(a.latitude, a.longitude, b.latitude, b.longitude);
+      }
     }
+    state.tourDistanceMiles = dist;
+  }
+
+  if (typeof tour.tourTotalMinutes === 'number') {
+    state.tourTotalMinutes = tour.tourTotalMinutes;
+  } else {
+    const walkingMinutes = state.tourDistanceMiles * 20;
+    const dwell = state.activeTour.length * 5;
+    state.tourTotalMinutes = Math.round(walkingMinutes + dwell);
+  }
+
+  state.tourPrice = (typeof tour.tourPrice === 'number')
+    ? tour.tourPrice
+    : Math.round((PRICE_BASE + PRICE_PER_STOP * state.activeTour.length) * 100) / 100;
+
+  const isPaid = !!tour.isPaid;   // old saved tours (no flag) count as *not* paid
+
+  // If not paid, show the PREVIEW paywall.
+  // If paid, go straight to TOUR.
+  state.view = isPaid ? 'TOUR' : 'PREVIEW';
+  state.error = null;
+  state.loading = false;
+
+  app.render();
 },
 
             deleteTour: (id, e) => {
