@@ -1338,9 +1338,60 @@ updateActionBar: () => {
     const bar = document.getElementById('action-bar');
     if (!bar) return;
 
+    const isPaidTour = !!(state.activeTourMeta && state.activeTourMeta.isPaid);
+    const isManualPlanningContext =
+        state.view === 'TOUR' && state.locationMethod === 'MANUAL';
+
+    // Common map URLs
+    const navUrl = Geo.generateMapsNavUrl(state.activeTour);
+    const previewUrl = isManualPlanningContext
+        ? Geo.generateMapsPreviewUrl(state.activeTour)
+        : null;
+
+    const previewButtonHtml = previewUrl
+        ? `
+            <a
+              href="${previewUrl}"
+              target="_blank"
+              class="w-full bg-white border border-gray-300 text-gray-700 hover:bg-gray-50
+                     font-bold py-3 rounded-xl flex items-center justify-center gap-2
+                     shadow-sm transition-colors"
+            >
+              ${Icons.MapPin} Preview route near planned start
+            </a>
+          `
+        : '';
+
+    // If the tour is paid, **no regenerate / remove controls**, just navigation + save
+    if (isPaidTour) {
+        state.selectedForRemoval = new Set(); // clear any stale selection
+        bar.innerHTML = `
+            <div class="max-w-md mx-auto w-full space-y-2">
+                <a
+                  href="${navUrl}"
+                  target="_blank"
+                  class="w-full bg-blue-100 hover:bg-blue-200 text-plaque-blue
+                         font-bold py-3 rounded-xl flex items-center justify-center gap-2
+                         shadow-sm transition-colors"
+                >
+                  ${Icons.MapPin} Start in Google Maps
+                </a>
+                ${previewButtonHtml}
+                <button
+                  onclick="app.saveTour()"
+                  class="w-full bg-green-600 hover:bg-green-700 text-white font-bold
+                         py-3 rounded-xl flex items-center justify-center gap-2
+                         shadow-md transition-colors"
+                >
+                  ${Icons.Heart(true)} Save to Favorites
+                </button>
+            </div>
+        `;
+        return;
+    }
+
     const count = state.selectedForRemoval.size;
     const canSwap = state.candidatePlaques.length > state.activeTour.length;
-    const isManualPlanningContext = state.view === 'TOUR' && state.locationMethod === 'MANUAL';
 
     if (count > 0) {
         // Some cards are selected → show regenerate / remove controls
@@ -1685,9 +1736,15 @@ renderCard: (plaque, index, total) => {
     const isCurrentAudio = state.currentSpeechPlaqueId === plaque.id;
     const isPaused = state.isSpeechPaused && isCurrentAudio;
     const isPlaying = state.isSpeechPlaying && isCurrentAudio;
+    const cardBorderClass =
+    isSel && canEditTour
+        ? 'border-red-500 bg-red-50'
+        : 'border-plaque-blue';
 
-    return `
-        <div id="card-${plaque.id}" class="bg-white rounded-xl shadow-md overflow-hidden border-l-4 mb-4 relative group transition-all ${isSel ? 'border-red-500 bg-red-50' : 'border-plaque-blue'}">
+return `
+    <div id="card-${plaque.id}"
+         class="bg-white rounded-xl shadow-md overflow-hidden border-l-4 mb-4
+                relative group transition-all ${cardBorderClass}">
             <div class="p-5">
                 <div class="flex justify-between items-start mb-2">
                     <div class="flex gap-2 items-center">
@@ -1697,10 +1754,22 @@ renderCard: (plaque, index, total) => {
                             ${plaque.category ? `<span class="text-xs text-gray-500 font-bold bg-gray-100 px-2 py-0.5 rounded-full inline-block w-max">${plaque.category}</span>` : ''}
                         </div>
                     </div>
+                    ${canEditTour ? `
                     <label class="flex items-center gap-2 cursor-pointer select-none">
-                        <span id="txt-${plaque.id}" class="text-xs font-bold uppercase ${isSel ? 'text-red-600' : 'text-gray-400 group-hover:text-gray-600'}">${isSel ? 'Remove' : 'Keep'}</span>
-                        <input type="checkbox" ${isSel ? 'checked' : ''} onchange="app.toggleRemove('${plaque.id}', this.checked)" class="w-5 h-5 text-red-600 border-gray-300 rounded focus:ring-red-500">
-                    </label>
+                    <span id="txt-${plaque.id}"
+                    class="text-xs font-bold uppercase ${
+                    isSel ? 'text-red-600' : 'text-gray-400 group-hover:text-gray-600'
+                    }">
+                    ${isSel ? 'Remove' : 'Keep'}
+                   </span>
+        <input
+            type="checkbox"
+            ${isSel ? 'checked' : ''}
+            onchange="app.toggleRemove('${plaque.id}', this.checked)"
+            class="w-5 h-5 text-red-600 border-gray-300 rounded focus:ring-red-500"
+        >
+    </label>
+` : ''}
                 </div>
 
                 <h3 class="text-lg font-bold text-gray-900 leading-tight mb-2 mt-2 pr-2">${plaque.title}</h3>
