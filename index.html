@@ -110,7 +110,7 @@
 
         // --- State ---
 const state = {
-    view: 'HOME', // HOME, TOUR, FAVORITES, COLOURS, GUIDE
+    view: 'HOME', // HOME, PREVIEW, TOUR, FAVORITES, COLOURS, GUIDE
     loading: false,
     error: null,
 
@@ -142,7 +142,11 @@ const state = {
     allPlaques: [],         // NEW: cache of everything from Collections.json
     currentSpeechPlaqueId: null,
     isSpeechPlaying: false,
-    isSpeechPaused: false
+    isSpeechPaused: false,
+    tourDistanceMiles: 0,
+    tourWalkMinutes: 0,
+    tourTotalMinutes: 0,
+    tourPrice: 0
 };
 
         // --- Services: Geo ---
