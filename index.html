@@ -159,6 +159,8 @@ const state = {
                 const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
                           Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(toRad(lat1)) * Math.cos(toRad(lat2));
                 const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                const PRICE_BASE = 2.99;       // £ base
+                const PRICE_PER_STOP = 0.50;   // £ per stop
                 return R * c;
             },
             getCurrentPosition: () => {
@@ -175,7 +177,30 @@ const state = {
 
                 const hasAllCoords = plaques.every(p =>
         Number.isFinite(p.latitude) && Number.isFinite(p.longitude)
-    );
+
+    computeTourStats: (startLoc, plaques) => {
+    let distance = 0;
+    let prev = { latitude: startLoc.latitude, longitude: startLoc.longitude };
+
+    for (const p of plaques) {
+      if (Number.isFinite(p.latitude) && Number.isFinite(p.longitude)) {
+        distance += Geo.calculateDistance(
+          prev.latitude,
+          prev.longitude,
+          p.latitude,
+          p.longitude
+        );
+        prev = { latitude: p.latitude, longitude: p.longitude };
+      }
+    }
+
+    // Assume ~3 mph walking speed → 20 mins per mile
+    const walkingMinutes = distance * 20;
+
+    return { distanceMiles: distance, walkingMinutes };
+  }
+};
+        
     if (!hasAllCoords) return plaques;
 
     // --- 1. Nearest neighbour initial route (your existing logic) ---
@@ -569,6 +594,175 @@ reverseGeocode: async (loc) => {
                 app.stopAudioWatch();
                 app.render();
             },
+            goToPaidTour: () => {
+            // later this is where you’ll hook in real payment logic
+                state.view = 'TOUR';
+                app.render();
+            },
+
+            renderPreview: () => {
+  const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
+  const stopCount = state.activeTour.length;
+  const radius = state.radius;
+
+  const distanceMiles = state.tourDistanceMiles || 0;
+  const distanceStr = distanceMiles < 0.1
+    ? '< 0.1'
+    : distanceMiles.toFixed(1);
+
+  const totalMinutes = state.tourTotalMinutes || 0;
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  const timeStr = hours
+    ? `${hours} hr ${mins} min`
+    : `${mins} min`;
+
+  const startStop = state.activeTour[0];
+  const followOnStops = state.activeTour.slice(1, 4); // first 3 after the start for teaser
+  const remainingCount = Math.max(0, stopCount - 1 - followOnStops.length);
+
+  const startLabel = state.isPlanned
+    ? (state.startHint || 'the suggested starting area')
+    : 'your current location';
+
+  // tiny helper to grab a 1-sentence teaser
+  const teaserFromSummary = (p) => {
+    if (!p || !p.summary) return 'stories from this part of the city.';
+    const firstSentence = p.summary.split(/[.!?]/)[0];
+    return firstSentence.trim() || 'stories from this part of the city.';
+  };
+
+  return `
+    <div class="pb-28">
+      <!-- Header / logo -->
+      <div class="flex flex-col items-center mt-6 mb-4">
+        <img
+          src="https://raw.githubusercontent.com/jameswroberts1-sketch/Curated-Tours/refs/heads/main/Logo.jpg"
+          alt="Curated Tours logo"
+          class="h-16 w-auto object-contain mb-2"
+          onerror="this.style.display='none';"
+        />
+        <p class="text-xs text-gray-500 tracking-wide uppercase">
+          Sifting city streets for ghosts
+        </p>
+      </div>
+
+      <div class="max-w-md mx-auto bg-white rounded-2xl shadow-xl border border-gray-100 p-6 space-y-4">
+        <h1 class="text-xl font-extrabold text-gray-900 mb-1">
+          Your Curated Tour of ${cityName}
+        </h1>
+        <p class="text-sm text-gray-700">
+          Thank you for considering <span class="font-semibold">Curated Tours</span> as your walking tour guide.
+        </p>
+
+        <p class="text-sm text-gray-700">
+          Based on your starting point and a search radius of
+          <span class="font-semibold">${radius.toFixed(1)} miles</span>,
+          I’ve identified <span class="font-semibold">${stopCount}</span>
+          stops that match your chosen collection.
+        </p>
+
+        <!-- Narrative teaser -->
+        <div class="mt-2 space-y-3 text-sm text-gray-700">
+          <p>
+            This tour will begin from <span class="font-semibold">${startLabel}</span>,
+            where you’ll discover <span class="font-semibold">${startStop?.title || 'the first story on this route'}</span> –
+            ${teaserFromSummary(startStop)}
+          </p>
+
+          ${
+            followOnStops.length
+              ? `
+              <p>
+                From there, we’ll move on to
+                ${followOnStops.map((p, idx) => `
+                  <span class="font-semibold">
+                    ${idx === 0 ? 'Stop A' : idx === 1 ? 'Stop B' : 'Stop C'} – ${p.title}
+                  </span>
+                `).join(idx => (idx < followOnStops.length - 1 ? ', ' : ''))}.
+                At each stop, you’ll hear the stories behind the plaques and the people they commemorate.
+              </p>
+              `
+              : ''
+          }
+
+          ${
+            remainingCount > 0
+              ? `
+              <p>
+                After these highlights, I’ll guide you to
+                <span class="font-semibold">${remainingCount} more stop${remainingCount > 1 ? 's' : ''}</span>
+                in this collection, all within easy walking distance.
+              </p>
+              `
+              : ''
+          }
+        </div>
+
+        <!-- Distance / time summary -->
+        <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
+          <div class="bg-blue-50 border border-blue-100 rounded-xl p-3">
+            <p class="text-xs font-semibold text-plaque-blue uppercase tracking-wide">
+              Approx. distance
+            </p>
+            <p class="mt-1 text-lg font-bold text-gray-900">
+              ${distanceStr} miles
+            </p>
+          </div>
+          <div class="bg-blue-50 border border-blue-100 rounded-xl p-3">
+            <p class="text-xs font-semibold text-plaque-blue uppercase tracking-wide">
+              Approx. duration
+            </p>
+            <p class="mt-1 text-lg font-bold text-gray-900">
+              ${timeStr}
+            </p>
+            <p class="mt-1 text-[0.7rem] text-gray-600">
+              Includes walking time and about 5 minutes at each stop.
+            </p>
+          </div>
+        </div>
+
+        <!-- Price -->
+        <div class="mt-4 bg-yellow-50 border border-yellow-200 rounded-xl p-3">
+          <p class="text-xs font-semibold text-yellow-800 uppercase tracking-wide">
+            Tour price
+          </p>
+          <p class="mt-1 text-2xl font-extrabold text-gray-900">
+            £${state.tourPrice.toFixed(2)}
+          </p>
+          <p class="mt-1 text-xs text-gray-600">
+            One-off payment for this Curated Tour on your device.
+          </p>
+        </div>
+
+        <!-- Actions -->
+        <div class="mt-5 space-y-2">
+          <button
+            onclick="app.goToPaidTour()"
+            class="w-full bg-plaque-blue hover:bg-blue-900 text-white font-bold py-3 rounded-xl shadow-md transition-colors flex items-center justify-center gap-2"
+          >
+            Make payment &amp; unlock full tour
+          </button>
+
+          <button
+            onclick="app.saveTour()"
+            class="w-full bg-white border border-gray-300 text-gray-800 font-semibold py-3 rounded-xl shadow-sm transition-colors hover:bg-gray-50 flex items-center justify-center gap-2"
+          >
+            ${Icons.Heart(false)}
+            Save this Curated Tour for later
+          </button>
+
+          <button
+            onclick="app.goHome()"
+            class="w-full text-xs text-gray-500 mt-1 hover:underline"
+          >
+            Start a different search
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+},
 
             // Update State Actions
             setMethod: (method) => { state.locationMethod = method; app.render(); },
@@ -843,7 +1037,6 @@ generateTour: async (e) => {
         state.activeTour = selected;
         state.selectedForRemoval = new Set();
         state.playedPlaques = new Set();
-        state.view = 'TOUR';
 
         // 3. Compute a friendly startHint
         if (state.isPlanned) {
@@ -929,6 +1122,21 @@ generateTour: async (e) => {
     state.selectedForRemoval = new Set();
     app.render();
 },         
+// 4. Compute tour stats and price for the preview screen
+const stats = Geo.computeTourStats(startLoc, selected);
+state.tourDistanceMiles = stats.distanceMiles;
+state.tourWalkMinutes = stats.walkingMinutes;
+
+// 5 minutes per stop for dwell time
+const dwellMinutes = state.activeTour.length * 5;
+state.tourTotalMinutes = Math.round(stats.walkingMinutes + dwellMinutes);
+
+// Simple £ pricing – base + per stop
+const rawPrice = PRICE_BASE + PRICE_PER_STOP * state.activeTour.length;
+state.tourPrice = Math.round(rawPrice * 100) / 100; // round to 2 dp
+
+// 5. Show the preview/paywall view
+state.view = 'PREVIEW';
             // Logic: Favorites
             saveTour: () => {
     if (!state.activeTour.length) return;
@@ -1067,15 +1275,17 @@ updateActionBar: () => {
     }
 
     if (state.view === 'HOME') {
-        html += app.renderHome();
+  html += app.renderHome();
+    } else if (state.view === 'PREVIEW') {
+  html += app.renderPreview();
     } else if (state.view === 'TOUR') {
-        html += app.renderTour();
+  html += app.renderTour();
     } else if (state.view === 'FAVORITES') {
-        html += app.renderFavorites();
+  html += app.renderFavorites();
     } else if (state.view === 'GUIDE') {
-        html += app.renderGuide();
+  html += app.renderGuide();
     } else if (state.view === 'COLOURS') {
-        html += app.renderColours();
+  html += app.renderColours();
     }
 
         root.innerHTML = html;
