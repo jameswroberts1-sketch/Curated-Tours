@@ -107,6 +107,8 @@
         const STORAGE_KEY = 'collections_saved_tours';
         const MAX_TOUR_SIZE = 10;
         const AUDIO_TRIGGER_DISTANCE = 0.0062; // ~10 meters in miles
+        const PRICE_BASE = 2.99;       // £ base
+        const PRICE_PER_STOP = 0.50;   // £ per stop
 
         // --- State ---
 const state = {
@@ -151,132 +153,113 @@ const state = {
 
         // --- Services: Geo ---
         const Geo = {
-            calculateDistance: (lat1, lon1, lat2, lon2) => {
-                const toRad = (value) => (value * Math.PI) / 180;
-                const R = 3958.8; // Miles
-                const dLat = toRad(lat2 - lat1);
-                const dLon = toRad(lon2 - lon1);
-                const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                          Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(toRad(lat1)) * Math.cos(toRad(lat2));
-                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-                const PRICE_BASE = 2.99;       // £ base
-                const PRICE_PER_STOP = 0.50;   // £ per stop
-                return R * c;
-            },
-            getCurrentPosition: () => {
-                return new Promise((resolve, reject) => {
-                    if (!navigator.geolocation) reject('Geolocation not supported');
-                    else navigator.geolocation.getCurrentPosition(
-                        pos => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
-                        err => reject(err)
-                    );
-                });
-            },
-            optimizeRoute: (startLoc, plaques) => {
+  calculateDistance: (lat1, lon1, lat2, lon2) => {
+    const toRad = (value) => (value * Math.PI) / 180;
+    const R = 3958.8; // Miles
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.sin(dLon / 2) * Math.sin(dLon / 2) *
+        Math.cos(toRad(lat1)) *
+        Math.cos(toRad(lat2));
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  },
+
+  getCurrentPosition: () => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) reject('Geolocation not supported');
+      else
+        navigator.geolocation.getCurrentPosition(
+          (pos) =>
+            resolve({
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+            }),
+          (err) => reject(err)
+        );
+    });
+  },
+
+  optimizeRoute: (startLoc, plaques) => {
     if (plaques.length <= 2) return plaques;
 
-                const hasAllCoords = plaques.every(p =>
-        Number.isFinite(p.latitude) && Number.isFinite(p.longitude)
-
-    computeTourStats: (startLoc, plaques) => {
-    let distance = 0;
-    let prev = { latitude: startLoc.latitude, longitude: startLoc.longitude };
-
-    for (const p of plaques) {
-      if (Number.isFinite(p.latitude) && Number.isFinite(p.longitude)) {
-        distance += Geo.calculateDistance(
-          prev.latitude,
-          prev.longitude,
-          p.latitude,
-          p.longitude
-        );
-        prev = { latitude: p.latitude, longitude: p.longitude };
-      }
-    }
-
-    // Assume ~3 mph walking speed → 20 mins per mile
-    const walkingMinutes = distance * 20;
-
-    return { distanceMiles: distance, walkingMinutes };
-  }
-};
-        
+    const hasAllCoords = plaques.every(
+      (p) => Number.isFinite(p.latitude) && Number.isFinite(p.longitude)
+    );
     if (!hasAllCoords) return plaques;
 
-    // --- 1. Nearest neighbour initial route (your existing logic) ---
+    // 1. Nearest neighbour
     const pool = [...plaques];
     const route = [];
     let current = { latitude: startLoc.latitude, longitude: startLoc.longitude };
 
     while (pool.length > 0) {
-        let nearestIdx = -1;
-        let minDist = Infinity;
-        for (let i = 0; i < pool.length; i++) {
-            const dist = Geo.calculateDistance(
-                current.latitude,
-                current.longitude,
-                pool[i].latitude,
-                pool[i].longitude
-            );
-            if (dist < minDist) {
-                minDist = dist;
-                nearestIdx = i;
-            }
+      let nearestIdx = -1;
+      let minDist = Infinity;
+      for (let i = 0; i < pool.length; i++) {
+        const dist = Geo.calculateDistance(
+          current.latitude,
+          current.longitude,
+          pool[i].latitude,
+          pool[i].longitude
+        );
+        if (dist < minDist) {
+          minDist = dist;
+          nearestIdx = i;
         }
-        const next = pool[nearestIdx];
-        route.push(next);
-        current = { latitude: next.latitude, longitude: next.longitude };
-        pool.splice(nearestIdx, 1);
+      }
+      const next = pool[nearestIdx];
+      route.push(next);
+      current = { latitude: next.latitude, longitude: next.longitude };
+      pool.splice(nearestIdx, 1);
     }
 
-    // --- Helpers for 2-opt ---
+    // 2. 2-opt
     const totalRouteDistance = (r) => {
-        let sum = 0;
-        let prev = { latitude: startLoc.latitude, longitude: startLoc.longitude };
-        for (const p of r) {
-            sum += Geo.calculateDistance(
-                prev.latitude,
-                prev.longitude,
-                p.latitude,
-                p.longitude
-            );
-            prev = p;
-        }
-        return sum;
+      let sum = 0;
+      let prev = { latitude: startLoc.latitude, longitude: startLoc.longitude };
+      for (const p of r) {
+        sum += Geo.calculateDistance(
+          prev.latitude,
+          prev.longitude,
+          p.latitude,
+          p.longitude
+        );
+        prev = p;
+      }
+      return sum;
     };
 
-    const twoOptSwap = (r, i, k) => {
-        // route[0..i-1] + reversed[i..k] + route[k+1..end]
-        return [
-            ...r.slice(0, i),
-            ...r.slice(i, k + 1).reverse(),
-            ...r.slice(k + 1)
-        ];
-    };
+    const twoOptSwap = (r, i, k) => [
+      ...r.slice(0, i),
+      ...r.slice(i, k + 1).reverse(),
+      ...r.slice(k + 1),
+    ];
 
-    // --- 2. 2-opt improvement loop ---
     let improved = true;
     let bestRoute = route;
     let bestDistance = totalRouteDistance(bestRoute);
 
     while (improved) {
-        improved = false;
-
-        for (let i = 0; i < bestRoute.length - 1; i++) {
-            for (let k = i + 1; k < bestRoute.length; k++) {
-                const newRoute = twoOptSwap(bestRoute, i, k);
-                const newDistance = totalRouteDistance(newRoute);
-
-                if (newDistance + 1e-9 < bestDistance) { // tiny epsilon to avoid float noise
-                    bestRoute = newRoute;
-                    bestDistance = newDistance;
-                    improved = true;
-                }
-            }
+      improved = false;
+      for (let i = 0; i < bestRoute.length - 1; i++) {
+        for (let k = i + 1; k < bestRoute.length; k++) {
+          const newRoute = twoOptSwap(bestRoute, i, k);
+          const newDistance = totalRouteDistance(newRoute);
+          if (newDistance + 1e-9 < bestDistance) {
+            bestRoute = newRoute;
+            bestDistance = newDistance;
+            improved = true;
+          }
         }
+      }
     }
 
     return bestRoute;
+  },
+
 },
 generateMapsPreviewUrl: (plaques) => {
     if (!plaques.length) return '';
@@ -400,7 +383,28 @@ findBestCluster: (plaques, radiusMiles) => {
 
     return { center, members };
 }
+computeTourStats: (startLoc, plaques) => {
+    let distance = 0;
+    let prev = { latitude: startLoc.latitude, longitude: startLoc.longitude };
+
+    for (const p of plaques) {
+      if (Number.isFinite(p.latitude) && Number.isFinite(p.longitude)) {
+        distance += Geo.calculateDistance(
+          prev.latitude,
+          prev.longitude,
+          p.latitude,
+          p.longitude
+        );
+        prev = { latitude: p.latitude, longitude: p.longitude };
+      }
+    }
+
+    // ~3 mph → 20 mins per mile
+    const walkingMinutes = distance * 20;
+    return { distanceMiles: distance, walkingMinutes };
+  },
 };
+        
 // --- Speech synthesis voice selection ---
 let preferredVoice = null;
 
@@ -675,11 +679,13 @@ reverseGeocode: async (loc) => {
               ? `
               <p>
                 From there, we’ll move on to
-                ${followOnStops.map((p, idx) => `
-                  <span class="font-semibold">
-                    ${idx === 0 ? 'Stop A' : idx === 1 ? 'Stop B' : 'Stop C'} – ${p.title}
-                  </span>
-                `).join(idx => (idx < followOnStops.length - 1 ? ', ' : ''))}.
+                ${followOnStops
+                 .map((p, idx) => {
+                 const label = idx === 0 ? 'Stop A' : idx === 1 ? 'Stop B' : 'Stop C';
+                 return `<span class="font-semibold">${label} – ${p.title}</span>`;
+                 })
+                .join(', ')
+                }.
                 At each stop, you’ll hear the stories behind the plaques and the people they commemorate.
               </p>
               `
@@ -1029,27 +1035,35 @@ generateTour: async (e) => {
         }
 
         // 2. Select & optimise tour
-        const shuffled = [...nearby].sort(() => 0.5 - Math.random());
-        let selected = shuffled.slice(0, state.stops);
-        selected = Geo.optimizeRoute(startLoc, selected);
+const shuffled = [...nearby].sort(() => 0.5 - Math.random());
+let selected = shuffled.slice(0, state.stops);
+selected = Geo.optimizeRoute(startLoc, selected);
 
-        state.candidatePlaques = nearby;
-        state.activeTour = selected;
-        state.selectedForRemoval = new Set();
-        state.playedPlaques = new Set();
+state.candidatePlaques = nearby;
+state.activeTour = selected;
+state.selectedForRemoval = new Set();
+state.playedPlaques = new Set();
 
-        // 3. Compute a friendly startHint
-        if (state.isPlanned) {
-            try {
-                const suggestedAddress = await Api.reverseGeocode(startLoc);
-                state.startHint = suggestedAddress;
-            } catch (err) {
-                console.warn('Reverse geocoding failed, falling back', err);
-                state.startHint = cityCfg.exampleAddress || state.selectedCity || '';
-            }
-        } else {
-            state.startHint = 'Your current location';
-        }
+// 3. Compute a friendly startHint
+if (state.isPlanned) {
+  ...
+} else {
+  state.startHint = 'Your current location';
+}
+
+// 4. Compute tour stats & price for the preview
+const stats = Geo.computeTourStats(startLoc, selected);
+state.tourDistanceMiles = stats.distanceMiles;
+state.tourWalkMinutes = stats.walkingMinutes;
+
+const dwellMinutes = state.activeTour.length * 5;
+state.tourTotalMinutes = Math.round(stats.walkingMinutes + dwellMinutes);
+
+const rawPrice = PRICE_BASE + PRICE_PER_STOP * state.activeTour.length;
+state.tourPrice = Math.round(rawPrice * 100) / 100;
+
+// 5. Show preview/paywall
+state.view = 'PREVIEW';
 
     } catch (err) {
         state.error = err.message || 'Error generating tour';
@@ -1122,21 +1136,7 @@ generateTour: async (e) => {
     state.selectedForRemoval = new Set();
     app.render();
 },         
-// 4. Compute tour stats and price for the preview screen
-const stats = Geo.computeTourStats(startLoc, selected);
-state.tourDistanceMiles = stats.distanceMiles;
-state.tourWalkMinutes = stats.walkingMinutes;
 
-// 5 minutes per stop for dwell time
-const dwellMinutes = state.activeTour.length * 5;
-state.tourTotalMinutes = Math.round(stats.walkingMinutes + dwellMinutes);
-
-// Simple £ pricing – base + per stop
-const rawPrice = PRICE_BASE + PRICE_PER_STOP * state.activeTour.length;
-state.tourPrice = Math.round(rawPrice * 100) / 100; // round to 2 dp
-
-// 5. Show the preview/paywall view
-state.view = 'PREVIEW';
             // Logic: Favorites
             saveTour: () => {
     if (!state.activeTour.length) return;
