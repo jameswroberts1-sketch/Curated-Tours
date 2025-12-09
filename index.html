@@ -1161,21 +1161,37 @@ generateTour: async (e) => {
   }
 },
             // Logic: Regenerate (Swap)
-            toggleRemove: (id, checked) => {
-                if (checked) state.selectedForRemoval.add(id);
-                else state.selectedForRemoval.delete(id);
-                // Update checkbox visually without full re-render for speed
-                const el = document.getElementById(`lbl-${id}`);
-                if (el) el.className = `text-xs font-bold uppercase ${checked ? 'text-red-600' : 'text-gray-400 group-hover:text-gray-600'}`;
-                const txt = document.getElementById(`txt-${id}`);
-                if (txt) txt.innerText = checked ? 'Remove' : 'Keep';
-                const card = document.getElementById(`card-${id}`);
-                if (card) card.className = `bg-white rounded-xl shadow-md overflow-hidden border-l-4 mb-4 relative group transition-all ${checked ? 'border-red-500 bg-red-50' : 'border-plaque-blue'}`;
-                
-                app.updateActionBar();
-            },
+toggleRemove: (id, checked) => {
+    // Once a tour is paid, do not allow editing
+    if (state.activeTourMeta && state.activeTourMeta.isPaid) return;
 
-            regenerateSelected: () => {
+    if (checked) state.selectedForRemoval.add(id);
+    else state.selectedForRemoval.delete(id);
+
+    // Update checkbox visually without full re-render for speed
+    const el = document.getElementById(`lbl-${id}`);
+    if (el) {
+        el.className = `text-xs font-bold uppercase ${
+            checked ? 'text-red-600' : 'text-gray-400 group-hover:text-gray-600'
+        }`;
+    }
+    const txt = document.getElementById(`txt-${id}`);
+    if (txt) txt.innerText = checked ? 'Remove' : 'Keep';
+    const card = document.getElementById(`card-${id}`);
+    if (card) {
+        card.className =
+            `bg-white rounded-xl shadow-md overflow-hidden border-l-4 mb-4 ` +
+            `relative group transition-all ${
+                checked ? 'border-red-500 bg-red-50' : 'border-plaque-blue'
+            }`;
+    }
+
+    app.updateActionBar();
+},
+regenerateSelected: () => {
+    // No regenerating on paid tours
+    if (state.activeTourMeta && state.activeTourMeta.isPaid) return;
+
     const idsToRemove = Array.from(state.selectedForRemoval).map(String);
     if (!idsToRemove.length) return;
 
@@ -1190,7 +1206,10 @@ generateTour: async (e) => {
     const needed = state.stops - kept.length;
 
     if (needed > 0 && pool.length < needed) {
-        alert('Not enough alternative locations nearby to replace all selected places of interest. Try reducing the number selected or increasing your radius.');
+        alert(
+            'Not enough alternative locations nearby to replace all selected places of interest. ' +
+            'Try reducing the number selected or increasing your radius.'
+        );
         return;
     }
 
@@ -1205,13 +1224,14 @@ generateTour: async (e) => {
     state.selectedForRemoval = new Set();
     app.render();
 },
+removeSelectedNoReplacement: () => {
+    // No removing stops on paid tours
+    if (state.activeTourMeta && state.activeTourMeta.isPaid) return;
 
-   removeSelectedNoReplacement: () => {
     const idsToRemove = Array.from(state.selectedForRemoval).map(String);
     if (!idsToRemove.length) return;
 
     const removedSet = new Set(idsToRemove);
-
     let newTour = state.activeTour.filter(p => !removedSet.has(String(p.id)));
 
     state.stops = newTour.length;
@@ -1223,7 +1243,7 @@ generateTour: async (e) => {
     state.activeTour = newTour;
     state.selectedForRemoval = new Set();
     app.render();
-},         
+},
 
             // Logic: Favorites
 saveTour: () => {
@@ -1639,10 +1659,13 @@ updateActionBar: () => {
     </div>
     `;
 },
-            renderCard: (plaque, index, total) => {
+renderCard: (plaque, index, total) => {
     const isStart = index === 0;
     const isEnd = index === total - 1;
     const isSel = state.selectedForRemoval.has(plaque.id);
+
+    const isPaidTour = !!(state.activeTourMeta && state.activeTourMeta.isPaid);
+    const canEditTour = !isPaidTour;
 
     let badge = '', label = '', bg = '';
     if (isStart) {
