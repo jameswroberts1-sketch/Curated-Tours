@@ -624,7 +624,7 @@ const Api = {
                 app.render();
             },
 
-            renderPreview: () => {
+renderPreview: () => {
   const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
   const stopCount = state.activeTour.length;
   const radius = state.radius;
@@ -658,23 +658,14 @@ const Api = {
 
   return `
     <div class="pb-28">
-      <!-- Header / logo -->
-      <div class="flex flex-col items-center mt-6 mb-4">
-        <img
-          src="https://raw.githubusercontent.com/jameswroberts1-sketch/Curated-Tours/refs/heads/main/Logo.jpg"
-          alt="Curated Tours logo"
-          class="h-16 w-auto object-contain mb-2"
-          onerror="this.style.display='none';"
-        />
-        <p class="text-xs text-gray-500 tracking-wide uppercase">
-          Sifting city streets for ghosts
-        </p>
-      </div>
-
-      <div class="max-w-md mx-auto bg-white rounded-2xl shadow-xl border border-gray-100 p-6 space-y-4">
+      <div class="max-w-md mx-auto bg-white rounded-2xl shadow-xl border border-gray-100 p-6 space-y-4 mt-4">
         <h1 class="text-xl font-extrabold text-gray-900 mb-1">
           Your Curated Tour of ${cityName}
         </h1>
+        <p class="text-xs text-gray-500 tracking-wide uppercase mb-1">
+          Sifting city streets for ghosts
+        </p>
+
         <p class="text-sm text-gray-700">
           Thank you for considering <span class="font-semibold">Curated Tours</span> as your walking tour guide.
         </p>
@@ -700,11 +691,11 @@ const Api = {
               <p>
                 From there, we’ll move on to
                 ${followOnStops
-                 .map((p, idx) => {
-                 const label = idx === 0 ? 'Stop A' : idx === 1 ? 'Stop B' : 'Stop C';
-                 return `<span class="font-semibold">${label} – ${p.title}</span>`;
-                 })
-                .join(', ')
+                  .map((p, idx) => {
+                    const label = idx === 0 ? 'Stop A' : idx === 1 ? 'Stop B' : 'Stop C';
+                    return `<span class="font-semibold">${label} – ${p.title}</span>`;
+                  })
+                  .join(', ')
                 }.
                 At each stop, you’ll hear the stories behind the plaques and the people they commemorate.
               </p>
@@ -789,7 +780,7 @@ const Api = {
     </div>
   `;
 },
-
+            
             // Update State Actions
             setMethod: (method) => { state.locationMethod = method; app.render(); },
             setAddress: (val) => { state.manualAddress = val; },
