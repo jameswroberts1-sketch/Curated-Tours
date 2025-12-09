@@ -34,35 +34,45 @@
 <body class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen pb-10">
 
     <!-- Header Section -->
-    <header class="bg-white shadow-sm relative z-20 pt-6">
-        <div class="max-w-2xl mx-auto px-4 h-72 flex items-end justify-between relative">
-            <!-- Left Spacer -->
-            <div class="w-10"></div>
-            
-            <!-- Center Logo -->
-            <div class="absolute left-1/2 transform -translate-x-1/2 flex items-end justify-center cursor-pointer h-full" onclick="app.goHome()">
-                <img 
-                    src="https://raw.githubusercontent.com/jameswroberts1-sketch/Curated-Tours/main/Curated-Tours.PNG" 
-                    alt="Curated Tours" 
-                    class="h-full w-auto object-contain scale-110 origin-bottom"
-                    onerror="this.style.display='none'; document.getElementById('logo-fallback').style.display='flex'"
-                >
-                <div id="logo-fallback" class="hidden flex-col items-center justify-end pb-4 h-full">
-                    <h1 class="text-4xl font-extrabold text-plaque-blue tracking-tight">Curated Tours</h1>
-                    <p class="text-sm text-gray-500 mt-1">Sifting city streets for ghosts</p>
-                </div>
-            </div>
-            
-            <!-- Right Action (Favorites) -->
-            <div class="w-10 flex justify-start z-10 self-start mt-6">
-                <button onclick="app.goFavorites()" class="p-2 text-gray-500 hover:text-red-500 transition-colors" aria-label="Favorites">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
-                    </svg>
-                </button>
-            </div>
-        </div>
-    </header>
+<header class="bg-white shadow-sm relative z-20 pt-6">
+  <div class="max-w-2xl mx-auto px-4 pb-4 flex items-center justify-between">
+    <!-- Left spacer (keeps logo centred vs heart icon) -->
+    <div class="w-8"></div>
+
+    <!-- Centre logo + tagline -->
+    <div
+      class="flex-1 flex flex-col items-center cursor-pointer"
+      onclick="app.goHome()"
+    >
+      <img
+        src="https://raw.githubusercontent.com/jameswroberts1-sketch/Curated-Tours/refs/heads/main/Logo.jpg"
+        alt="Curated Tours logo"
+        class="h-16 w-auto object-contain"
+        onerror="this.style.display='none';"
+      >
+      <!-- Keep the tagline for now -->
+      <p class="text-sm text-gray-500 mt-2">
+        Sifting city streets for ghosts
+      </p>
+    </div>
+
+    <!-- Right Action (Favorites) -->
+    <div class="w-8 flex justify-end z-10">
+      <button
+        onclick="app.goFavorites()"
+        class="p-2 text-gray-500 hover:text-red-500 transition-colors"
+        aria-label="Favorites"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+             viewBox="0 0 24 24" stroke-width="1.5"
+             stroke="currentColor" class="w-6 h-6">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
+        </svg>
+      </button>
+    </div>
+  </div>
+</header>
 
     <!-- Main App Container -->
     <main id="app" class="max-w-2xl mx-auto px-4 pt-0 pb-6">
