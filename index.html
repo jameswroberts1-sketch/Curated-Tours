@@ -563,6 +563,30 @@ const Api = {
                           fill="currentColor" class="w-4 h-4">
                         <path d="M6.75 5.25h10.5a1.5 1.5 0 0 1 1.5 1.5v10.5a1.5 1.5 0 0 1-1.5 1.5H6.75a1.5 1.5 0 0 1-1.5-1.5V6.75a1.5 1.5 0 0 1 1.5-1.5z" />
                     </svg>`,
+
+            PadlockLocked: `
+                    <svg xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    class="w-4 h-4">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                     d="M16.5 10.5V7a4.5 4.5 0 10-9 0v3.5M7.5 10.5h9A1.5 1.5 0 0118 12v6a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 016 18v-6a1.5 1.5 0 011.5-1.5z" />
+                    </svg>
+                    `,
+
+            PadlockUnlocked: `
+                    <svg xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    class="w-4 h-4">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M8.25 10.5V7a3.75 3.75 0 017.5 0M7.5 10.5h9A1.5 1.5 0 0118 12v6a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 016 18v-6a1.5 1.5 0 011.5-1.5z" />
+                    </svg>
+                    `,
         };
 
         // --- Application Controller ---
@@ -1646,51 +1670,102 @@ updateActionBar: () => {
         </div>
     `;
 },
-            renderFavorites: () => {
-                const tours = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-                return `
-                <div class="h-full">
-                    <div class="flex items-center mb-6">
-                        <button onclick="app.goHome()" class="p-2 -ml-2 text-gray-600 hover:text-plaque-blue">${Icons.ArrowLeft}</button>
-                        <h2 class="text-2xl font-bold text-gray-900 ml-2">My Saved Tours</h2>
+renderFavorites: () => {
+  const tours = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+
+  return `
+    <div class="h-full">
+      <div class="flex items-center mb-6">
+        <button onclick="app.goHome()" class="p-2 -ml-2 text-gray-600 hover:text-plaque-blue">
+          ${Icons.ArrowLeft}
+        </button>
+        <h2 class="text-2xl font-bold text-gray-900 ml-2">My Saved Tours</h2>
+      </div>
+
+      ${
+        tours.length === 0
+          ? `
+          <div class="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
+            <p class="text-gray-500 mb-4">No saved tours yet.</p>
+            <button onclick="app.goHome()" class="text-plaque-blue font-medium hover:underline">
+              Create your first tour
+            </button>
+          </div>
+        `
+          : `
+          <div class="space-y-4">
+            ${
+              tours
+                .map((tour) => {
+                  const isPaid = !!tour.isPaid; // old tours default to locked
+                  const padlockIcon = isPaid ? Icons.PadlockUnlocked : Icons.PadlockLocked;
+                  const padlockText = isPaid ? 'Unlocked tour' : 'Locked – payment required';
+                  const padlockColor = isPaid ? 'text-plaque-blue' : 'text-red-500';
+
+                  return `
+                    <div onclick="app.loadTour('${tour.id}')"
+                         class="bg-white p-5 rounded-xl shadow-sm border border-gray-200
+                                hover:border-plaque-blue hover:shadow-md transition-all cursor-pointer
+                                group relative">
+                      <div class="flex justify-between items-start">
+                        <div>
+                          <h3 class="font-bold text-lg text-gray-800 group-hover:text-plaque-blue">
+                            ${tour.name || `${tour.cityName} walk`}
+                          </h3>
+                          <p class="text-xs text-gray-500 mt-1">
+                            ${
+                              tour.isPlanned
+                                ? `Planned tour – start near: ${tour.startHint || 'chosen address'}`
+                                : 'Recorded from your current location'
+                            }
+                          </p>
+                          <p class="text-xs text-gray-400 mt-1">
+                            Saved on ${new Date(tour.date).toLocaleDateString()}
+                          </p>
+                          <div class="mt-3 flex gap-1">
+                            ${tour.plaques
+                              .slice(0, 3)
+                              .map(
+                                () =>
+                                  `<div class="w-2 h-2 rounded-full bg-gray-300 group-hover:bg-plaque-blue"></div>`
+                              )
+                              .join('')}
+                            ${
+                              tour.plaques.length > 3
+                                ? `<span class="text-xs text-gray-400 ml-1">+${tour.plaques.length - 3}</span>`
+                                : ''
+                            }
+                          </div>
+                        </div>
+
+                        <div class="flex flex-col items-end gap-2">
+                          <!-- Padlock status -->
+                          <div class="flex items-center gap-1 text-xs ${padlockColor}">
+                            ${padlockIcon}
+                            <span>${padlockText}</span>
+                          </div>
+
+                          <!-- Delete button -->
+                          <button
+                            onclick="app.deleteTour('${tour.id}', event)"
+                            class="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50
+                                   rounded-full transition-colors z-10"
+                          >
+                            ${Icons.Trash}
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    ${tours.length === 0 ? `
-                        <div class="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
-                            <p class="text-gray-500 mb-4">No saved tours yet.</p>
-                            <button onclick="app.goHome()" class="text-plaque-blue font-medium hover:underline">Create your first tour</button>
-                        </div>
-                    ` : `
-                        <div class="space-y-4">
-                            ${tours.map(tour => `
-                            <div onclick="app.loadTour('${tour.id}')" class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:border-plaque-blue hover:shadow-md transition-all cursor-pointer group relative">
-                                <div class="flex justify-between items-start">
-                                    <div>
-                                        <h3 class="font-bold text-lg text-gray-800 group-hover:text-plaque-blue">
-    ${tour.name || `${tour.cityName} walk`}
-</h3>
-<p class="text-xs text-gray-500 mt-1">
-    ${tour.isPlanned
-        ? `Planned tour – start near: ${tour.startHint || 'chosen address'}`
-        : 'Recorded from your current location'}
-</p>
-<p class="text-xs text-gray-400 mt-1">
-    Saved on ${new Date(tour.date).toLocaleDateString()}
-</p>
-                                        <div class="mt-3 flex gap-1">
-                                            ${tour.plaques.slice(0, 3).map(() => `<div class="w-2 h-2 rounded-full bg-gray-300 group-hover:bg-plaque-blue"></div>`).join('')}
-                                            ${tour.plaques.length > 3 ? `<span class="text-xs text-gray-400 ml-1">+${tour.plaques.length - 3}</span>` : ''}
-                                        </div>
-                                    </div>
-                                    <button onclick="app.deleteTour('${tour.id}', event)" class="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors z-10">
-                                        ${Icons.Trash}
-                                    </button>
-                                </div>
-                            </div>
-                            `).join('')}
-                        </div>
-                    `}
-                </div>`;
-            },
+                  `;
+                })
+                .join('')
+            }
+          </div>
+        `
+      }
+    </div>
+  `;
+},
     
             renderGuide: () => {
                 return `
