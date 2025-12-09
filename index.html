@@ -627,6 +627,67 @@ const Api = {
                 state.view = 'TOUR';
                 app.render();
             },
+            markTourPaidAndSave: () => {
+  if (!state.activeTour.length) return;
+
+  const cityName =
+    state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
+
+  const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+
+  let id = state.activeTourMeta && state.activeTourMeta.id;
+
+  // Prepare a default tour name if we need to create a new entry
+  const defaultName = state.isPlanned
+    ? `${cityName} – ${state.startHint || 'planned walk'}`
+    : `${cityName} walk`;
+
+  // If this tour already exists in favourites, update that record
+  if (id) {
+    const idx = existing.findIndex((t) => t.id === id);
+    if (idx !== -1) {
+      existing[idx] = {
+        ...existing[idx],
+        cityName,
+        plaques: state.activeTour,
+        isPlanned: state.isPlanned,
+        startHint: state.startHint,
+        distanceMiles: state.tourDistanceMiles,
+        walkMinutes: state.tourWalkMinutes,
+        totalMinutes: state.tourTotalMinutes,
+        price: state.tourPrice,
+        isPaid: true,
+      };
+    } else {
+      // If somehow the id isn’t in storage, fall back to creating a new entry
+      id = null;
+    }
+  }
+
+  // If there is no existing entry, create one automatically
+  if (!id) {
+    id = Date.now().toString();
+    const tour = {
+      id,
+      name: defaultName,
+      date: new Date().toISOString(),
+      cityName,
+      plaques: state.activeTour,
+      isPlanned: state.isPlanned,
+      startHint: state.startHint,
+      distanceMiles: state.tourDistanceMiles,
+      walkMinutes: state.tourWalkMinutes,
+      totalMinutes: state.tourTotalMinutes,
+      price: state.tourPrice,
+      isPaid: true,
+    };
+    existing.unshift(tour);
+  }
+
+  state.activeTourMeta = { id, isPaid: true };
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
+},
 
 renderPreview: () => {
   const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
@@ -1168,33 +1229,50 @@ generateTour: async (e) => {
 saveTour: () => {
   if (!state.activeTour.length) return;
 
-  const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
+  const cityName =
+    state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
 
-  // Sensible default name
+  const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+
+  let id = state.activeTourMeta && state.activeTourMeta.id;
+  const isPaid = !!(state.activeTourMeta && state.activeTourMeta.isPaid);
+
+  // If this tour hasn’t been saved before, create a new id
+  if (!id) {
+    id = Date.now().toString();
+  }
+
   const defaultName = state.isPlanned
     ? `${cityName} – ${state.startHint || 'planned walk'}`
     : `${cityName} walk`;
 
   const name = (prompt('Give this tour a name:', defaultName) || defaultName).trim();
 
-  const tour = {
-    id: Date.now().toString(),
+  const tourData = {
+    id,
     name,
     date: new Date().toISOString(),
     cityName,
     plaques: state.activeTour,
     isPlanned: state.isPlanned,
     startHint: state.startHint,
-
-    // NEW: payment + stats
-    isPaid: state.view === 'TOUR',              // saved from TOUR = already unlocked
-    tourDistanceMiles: state.tourDistanceMiles,
-    tourTotalMinutes: state.tourTotalMinutes,
-    tourPrice: state.tourPrice
+    distanceMiles: state.tourDistanceMiles,
+    walkMinutes: state.tourWalkMinutes,
+    totalMinutes: state.tourTotalMinutes,
+    price: state.tourPrice,
+    isPaid,
   };
 
-  const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-  localStorage.setItem(STORAGE_KEY, JSON.stringify([tour, ...existing]));
+  const idx = existing.findIndex((t) => t.id === id);
+  if (idx === -1) {
+    existing.unshift(tourData);
+  } else {
+    existing[idx] = tourData;
+  }
+
+  state.activeTourMeta = { id, isPaid };
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
   alert('Tour saved!');
 },
 
