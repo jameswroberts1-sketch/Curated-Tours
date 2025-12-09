@@ -152,7 +152,8 @@ const state = {
 };
 
         // --- Services: Geo ---
-        const Geo = {
+// --- Services: Geo ---
+const Geo = {
   calculateDistance: (lat1, lon1, lat2, lon2) => {
     const toRad = (value) => (value * Math.PI) / 180;
     const R = 3958.8; // Miles
@@ -260,21 +261,19 @@ const state = {
     return bestRoute;
   },
 
-},
-generateMapsPreviewUrl: (plaques) => {
+  generateMapsPreviewUrl: (plaques) => {
     if (!plaques.length) return '';
 
     const baseUrl = "https://www.google.com/maps/dir/?api=1";
 
     const getLoc = (p) => {
-        const hasCoords =
-            Number.isFinite(p.latitude) &&
-            Number.isFinite(p.longitude);
+      const hasCoords =
+        Number.isFinite(p.latitude) && Number.isFinite(p.longitude);
 
-        if (hasCoords) {
-            return `${p.latitude},${p.longitude}`;
-        }
-        return encodeURIComponent((p.address || '').trim());
+      if (hasCoords) {
+        return `${p.latitude},${p.longitude}`;
+      }
+      return encodeURIComponent((p.address || '').trim());
     };
 
     const dest = getLoc(plaques[plaques.length - 1]);
@@ -283,15 +282,13 @@ generateMapsPreviewUrl: (plaques) => {
     let waypointPlaques = [];
 
     if (state.locationMethod === 'MANUAL') {
-        // “Planning ahead” – show a route local to the planned hub
-        origin = getLoc(plaques[0]);          // planned start area / first plaque
-        waypointPlaques = plaques.slice(1, -1);
+      origin = getLoc(plaques[0]);          // planned start
+      waypointPlaques = plaques.slice(1, -1);
     } else {
-        // GPS mode – user is already in the city, so origin = where they are
-        if (state.userLocation) {
-            origin = `${state.userLocation.latitude},${state.userLocation.longitude}`;
-        }
-        waypointPlaques = plaques.slice(0, -1);
+      if (state.userLocation) {
+        origin = `${state.userLocation.latitude},${state.userLocation.longitude}`;
+      }
+      waypointPlaques = plaques.slice(0, -1);
     }
 
     const waypoints = waypointPlaques.map(p => getLoc(p)).join('|');
@@ -301,89 +298,86 @@ generateMapsPreviewUrl: (plaques) => {
     if (waypoints) url += `&waypoints=${waypoints}`;
 
     return url;
-},
+  },
 
-generateMapsNavUrl: (plaques) => {
+  generateMapsNavUrl: (plaques) => {
     if (!plaques.length) return '';
 
     const baseUrl = "https://www.google.com/maps/dir/?api=1";
 
     const getLoc = (p) => {
-        const hasCoords =
-            Number.isFinite(p.latitude) &&
-            Number.isFinite(p.longitude);
+      const hasCoords =
+        Number.isFinite(p.latitude) && Number.isFinite(p.longitude);
 
-        if (hasCoords) {
-            return `${p.latitude},${p.longitude}`;
-        }
-        return encodeURIComponent((p.address || '').trim());
+      if (hasCoords) {
+        return `${p.latitude},${p.longitude}`;
+      }
+      return encodeURIComponent((p.address || '').trim());
     };
 
     const dest = getLoc(plaques[plaques.length - 1]);
     const waypointPlaques = plaques.slice(0, -1);
     const waypoints = waypointPlaques.map(p => getLoc(p)).join('|');
 
-    // IMPORTANT: no origin here → Google uses “Your location”
     let url = `${baseUrl}&destination=${dest}&travelmode=walking`;
     if (waypoints) url += `&waypoints=${waypoints}`;
 
     return url;
-},
+  },
 
-// NEW: find densest cluster of plaques within a radius
-findBestCluster: (plaques, radiusMiles) => {
-    // Only plaques with coordinates
+  // find densest cluster of plaques within a radius
+  findBestCluster: (plaques, radiusMiles) => {
     const points = plaques.filter(p =>
-        Number.isFinite(p.latitude) && Number.isFinite(p.longitude)
+      Number.isFinite(p.latitude) && Number.isFinite(p.longitude)
     );
 
     if (!points.length) {
-        return { center: null, members: [] };
+      return { center: null, members: [] };
     }
 
     let bestIndex = 0;
     let bestCount = 1;
 
-    // O(n²) – fine for a few hundred points
     for (let i = 0; i < points.length; i++) {
-        const pivot = points[i];
-        let count = 0;
+      const pivot = points[i];
+      let count = 0;
 
-        for (let j = 0; j < points.length; j++) {
-            const other = points[j];
-            const dist = Geo.calculateDistance(
-                pivot.latitude,
-                pivot.longitude,
-                other.latitude,
-                other.longitude
-            );
-            if (dist <= radiusMiles) count++;
-        }
+      for (let j = 0; j < points.length; j++) {
+        const other = points[j];
+        const dist = Geo.calculateDistance(
+          pivot.latitude,
+          pivot.longitude,
+          other.latitude,
+          other.longitude
+        );
+        if (dist <= radiusMiles) count++;
+      }
 
-        if (count > bestCount) {
-            bestCount = count;
-            bestIndex = i;
-        }
+      if (count > bestCount) {
+        bestCount = count;
+        bestIndex = i;
+      }
     }
 
     const centerPlaque = points[bestIndex];
     const center = {
-        latitude: centerPlaque.latitude,
-        longitude: centerPlaque.longitude
+      latitude: centerPlaque.latitude,
+      longitude: centerPlaque.longitude
     };
 
     const members = points.filter(p =>
-        Geo.calculateDistance(
-            center.latitude,
-            center.longitude,
-            p.latitude,
-            p.longitude
-        ) <= radiusMiles
+      Geo.calculateDistance(
+        center.latitude,
+        center.longitude,
+        p.latitude,
+        p.longitude
+      ) <= radiusMiles
     );
 
     return { center, members };
-}
-computeTourStats: (startLoc, plaques) => {
+  },
+
+  computeTourStats: (startLoc, plaques) => {
     let distance = 0;
     let prev = { latitude: startLoc.latitude, longitude: startLoc.longitude };
 
@@ -399,10 +393,9 @@ computeTourStats: (startLoc, plaques) => {
       }
     }
 
-    // ~3 mph → 20 mins per mile
-    const walkingMinutes = distance * 20;
+    const walkingMinutes = distance * 20; // ~3 mph
     return { distanceMiles: distance, walkingMinutes };
-  },
+  }
 };
         
 // --- Speech synthesis voice selection ---
@@ -449,74 +442,77 @@ function initVoiceSupport() {
 
 // --- Services: API ---
 const Api = {
-    fetchPlaques: async (url) => {
-        const res = await fetch(url);
-        const data = await res.json();
+  fetchPlaques: async (url) => {
+    const res = await fetch(url);
+    const data = await res.json();
 
-        return data.map((item, idx) => ({
-            id: String(item.id ?? `plaque-${idx}`),
-            title: item.title || 'Unknown Title',
+    return data.map((item, idx) => ({
+      id: String(item.id ?? `plaque-${idx}`),
+      title: item.title || 'Unknown Title',
 
-            // Collection / role
-            category: item.lead_subject_primary_role || item.category || '',
+      // Collection / role
+      category: item.lead_subject_primary_role || item.category || '',
 
-            // City / area
-            area: item.area || '',
+      // City / area
+      area: item.area || '',
 
-            latitude: parseFloat(item.latitude),
-            longitude: parseFloat(item.longitude),
-            address: item.address || '',
+      latitude: parseFloat(item.latitude),
+      longitude: parseFloat(item.longitude),
+      address: item.address || '',
 
-            // ⬇️ summary text shown on screen
-            summary: item.inscription ||
-                     item.subjects ||
-                     item.summary ||
-                     item.description ||
-                     'No description available.',
+      // summary text shown on screen
+      summary:
+        item.inscription ||
+        item.subjects ||
+        item.summary ||
+        item.description ||
+        'No description available.',
 
-            // ⬇️ long-form bio text – audio only
-            bio: item.lead_subject_bio || ''
-        }));
-    },
+      // long-form bio text – audio only
+      bio: item.lead_subject_bio || ''
+    }));
+  },
 
-geocode: async (query) => {
+  geocode: async (query) => {
     const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+        query
+      )}&limit=1`
     );
     const data = await res.json();
     if (data && data.length) {
-        return {
-            latitude: parseFloat(data[0].lat),
-            longitude: parseFloat(data[0].lon)
-        };
+      return {
+        latitude: parseFloat(data[0].lat),
+        longitude: parseFloat(data[0].lon),
+      };
     }
     throw new Error('Location not found');
-},
+  },
 
-// NEW: reverse geocoding for startHint / display text
-reverseGeocode: async (loc) => {
+  // reverse geocoding for startHint / display text
+  reverseGeocode: async (loc) => {
     const { latitude, longitude } = loc;
 
     const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=16&addressdetails=1`
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=16&addressdetails=1`
     );
     const data = await res.json();
 
     if (data && data.display_name) {
-        return data.display_name;
+      return data.display_name;
     }
 
     if (data && data.address) {
-        const { road, suburb, city, town, village, state, postcode } = data.address;
-        const line = [road, suburb || city || town || village, state, postcode]
-            .filter(Boolean)
-            .join(', ');
-        if (line) return line;
+      const { road, suburb, city, town, village, state, postcode } = data.address;
+      const line = [road, suburb || city || town || village, state, postcode]
+        .filter(Boolean)
+        .join(', ');
+      if (line) return line;
     }
 
     // Fallback to raw coords if nothing nicer
     return `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
-}
+  }
 };
         // --- Icons (SVG Strings) ---
         const Icons = {
@@ -960,117 +956,125 @@ loadCategories: async () => {
 },
 
 generateTour: async (e) => {
-    if (e) e.preventDefault();
-    state.loading = true;
-    state.error = null;
-    app.render();
+  if (e) e.preventDefault();
+  state.loading = true;
+  state.error = null;
+  app.render();
 
-    const cityCfg = CITIES[state.cityIndex];
+  const cityCfg = CITIES[state.cityIndex];
 
-    try {
-        // 1. Base plaque set: city + collection
-        const all = state.allPlaques && state.allPlaques.length
-            ? state.allPlaques
-            : await Api.fetchPlaques(cityCfg.url);
+  try {
+    // 1. Base plaque set: city + collection
+    const all = state.allPlaques && state.allPlaques.length
+      ? state.allPlaques
+      : await Api.fetchPlaques(cityCfg.url);
 
-        let filtered = all;
+    let filtered = all;
 
-        // City filter
-        if (state.selectedCity) {
-            const cityName = state.selectedCity.toLowerCase();
-            filtered = filtered.filter(p =>
-                p.area && p.area.toLowerCase() === cityName
-            );
-        }
-
-        // Collection filter
-        if (state.collection) {
-            const col = state.collection.toLowerCase();
-            filtered = filtered.filter(p =>
-                p.category && p.category.toLowerCase() === col
-            );
-        }
-
-        if (!filtered.length) {
-            throw new Error('No places of interest found for this city / collection.');
-        }
-
-        let startLoc;
-        let nearby = [];
-
-        if (state.locationMethod === 'GPS') {
-            // --- START NOW: centre on the user and keep within radius ---
-            startLoc = await Geo.getCurrentPosition();
-            state.userLocation = startLoc;
-
-            nearby = filtered.filter(p => {
-                const hasCoords = Number.isFinite(p.latitude) && Number.isFinite(p.longitude);
-                if (!hasCoords) return false;
-                const dist = Geo.calculateDistance(
-                    startLoc.latitude,
-                    startLoc.longitude,
-                    p.latitude,
-                    p.longitude
-                );
-                return dist <= state.radius;
-            });
-
-            state.isPlanned = false;
-        } else {
-            // --- PLAN FOR LATER: find best cluster anywhere in the city ---
-            const { center, members } = Geo.findBestCluster(filtered, state.radius);
-
-            if (!center || !members.length) {
-                throw new Error(`No suitable cluster found within ${state.radius} miles for this collection.`);
-            }
-
-            startLoc = center;
-            state.userLocation = startLoc;
-            nearby = members;
-            state.isPlanned = true;
-        }
-
-        if (!nearby.length) {
-            throw new Error(`No places of interest found within ${state.radius} miles.`);
-        }
-
-        // 2. Select & optimise tour
-const shuffled = [...nearby].sort(() => 0.5 - Math.random());
-let selected = shuffled.slice(0, state.stops);
-selected = Geo.optimizeRoute(startLoc, selected);
-
-state.candidatePlaques = nearby;
-state.activeTour = selected;
-state.selectedForRemoval = new Set();
-state.playedPlaques = new Set();
-
-// 3. Compute a friendly startHint
-if (state.isPlanned) {
-  ...
-} else {
-  state.startHint = 'Your current location';
-}
-
-// 4. Compute tour stats & price for the preview
-const stats = Geo.computeTourStats(startLoc, selected);
-state.tourDistanceMiles = stats.distanceMiles;
-state.tourWalkMinutes = stats.walkingMinutes;
-
-const dwellMinutes = state.activeTour.length * 5;
-state.tourTotalMinutes = Math.round(stats.walkingMinutes + dwellMinutes);
-
-const rawPrice = PRICE_BASE + PRICE_PER_STOP * state.activeTour.length;
-state.tourPrice = Math.round(rawPrice * 100) / 100;
-
-// 5. Show preview/paywall
-state.view = 'PREVIEW';
-
-    } catch (err) {
-        state.error = err.message || 'Error generating tour';
-    } finally {
-        state.loading = false;
-        app.render();
+    // City filter
+    if (state.selectedCity) {
+      const cityName = state.selectedCity.toLowerCase();
+      filtered = filtered.filter(p =>
+        p.area && p.area.toLowerCase() === cityName
+      );
     }
+
+    // Collection filter
+    if (state.collection) {
+      const col = state.collection.toLowerCase();
+      filtered = filtered.filter(p =>
+        p.category && p.category.toLowerCase() === col
+      );
+    }
+
+    if (!filtered.length) {
+      throw new Error('No places of interest found for this city / collection.');
+    }
+
+    let startLoc;
+    let nearby = [];
+
+    if (state.locationMethod === 'GPS') {
+      // START NOW: centre on the user and keep within radius
+      startLoc = await Geo.getCurrentPosition();
+      state.userLocation = startLoc;
+
+      nearby = filtered.filter(p => {
+        const hasCoords =
+          Number.isFinite(p.latitude) && Number.isFinite(p.longitude);
+        if (!hasCoords) return false;
+        const dist = Geo.calculateDistance(
+          startLoc.latitude,
+          startLoc.longitude,
+          p.latitude,
+          p.longitude
+        );
+        return dist <= state.radius;
+      });
+
+      state.isPlanned = false;
+    } else {
+      // PLAN FOR LATER: find best cluster anywhere in the city
+      const { center, members } = Geo.findBestCluster(filtered, state.radius);
+
+      if (!center || !members.length) {
+        throw new Error(
+          `No suitable cluster found within ${state.radius} miles for this collection.`
+        );
+      }
+
+      startLoc = center;
+      state.userLocation = startLoc;
+      nearby = members;
+      state.isPlanned = true;
+    }
+
+    if (!nearby.length) {
+      throw new Error(`No places of interest found within ${state.radius} miles.`);
+    }
+
+    // 2. Select & optimise tour
+    const shuffled = [...nearby].sort(() => 0.5 - Math.random());
+    let selected = shuffled.slice(0, state.stops);
+    selected = Geo.optimizeRoute(startLoc, selected);
+
+    state.candidatePlaques = nearby;
+    state.activeTour = selected;
+    state.selectedForRemoval = new Set();
+    state.playedPlaques = new Set();
+
+    // 3. Compute a friendly startHint
+    if (state.isPlanned) {
+      try {
+        const suggestedAddress = await Api.reverseGeocode(startLoc);
+        state.startHint = suggestedAddress;
+      } catch (err) {
+        console.warn('Reverse geocoding failed, falling back', err);
+        state.startHint = cityCfg.exampleAddress || state.selectedCity || '';
+      }
+    } else {
+      state.startHint = 'Your current location';
+    }
+
+    // 4. Compute tour stats & price for the preview
+    const stats = Geo.computeTourStats(startLoc, selected);
+    state.tourDistanceMiles = stats.distanceMiles;
+    state.tourWalkMinutes = stats.walkingMinutes;
+
+    const dwellMinutes = state.activeTour.length * 5;
+    state.tourTotalMinutes = Math.round(stats.walkingMinutes + dwellMinutes);
+
+    const rawPrice = PRICE_BASE + PRICE_PER_STOP * state.activeTour.length;
+    state.tourPrice = Math.round(rawPrice * 100) / 100;
+
+    // 5. Show preview/paywall
+    state.view = 'PREVIEW';
+  } catch (err) {
+    state.error = err.message || 'Error generating tour';
+  } finally {
+    state.loading = false;
+    app.render();
+  }
 },
             // Logic: Regenerate (Swap)
             toggleRemove: (id, checked) => {
