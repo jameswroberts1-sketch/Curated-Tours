@@ -685,7 +685,7 @@
    "title": "The Good Mixer",
    "inscription": "You’re standing outside one of the unlikeliest landmarks in British music history.\n\nRight here, at this corner pub, a guitarist walks in. At the bar he meets his chart rival. There’s a bit of small talk, a bit of beer, and then supposedly, one legendary line:\n\n“Nice music,” he says. “Shit clothes.”\n\nIt’s the kind of off-hand insult that could have been forgotten in five minutes – except this is the 1990s, the bands are Blur and Oasis, and the music press is desperate for a feud. Whether it happened exactly that way or not, this little pub gets written into the creation myth of Britpop.\n\nAnd you’re standing right outside it.",
    "latitude": 51.5394851902,
-   "longitude": -0.1446433669
+   "longitude": -0.1446433669,
    "country": "",
    "area": "London",
    "address": "30 Inverness St, London NW1 7HJ",
@@ -1401,4 +1401,5 @@
  }
 
 ]
+
 
