@@ -1759,8 +1759,8 @@
    "machine_tag": "",
    "title": "Inside the Pink Hippo: Leander Club",
    "inscription": "Just across the bridge, Leander’s clubhouse is home to the pink-hippo-badged club that has produced more Olympic rowing medallists than any other in the world. From here you can trace stories of exclusive gentlemen’s rowing, the gradual opening up to wider talent, and the odd moments when foreign crews—like Yale in 1896—came to challenge British dominance and instead found themselves out-rowed and then out-partied.",
-   "latitude": 51.53780161,
-   "longitude": -0.899135633,
+   "latitude": 51.5382814135084,
+   "longitude": -0.899704671811517,
    "country": "",
    "area": "Henley-on-Thames",
    "address": "Leander Club, Henley-on-Thames RG9 2LP",
@@ -2027,4 +2027,5 @@
    "subjects": "",
    "status": "Complete"
  }
+
 ]
