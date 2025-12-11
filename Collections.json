@@ -1486,8 +1486,8 @@
    "machine_tag": "",
    "title": "From Chantry Priests to Picture-Perfect Cottage: Chantry House",
    "inscription": "Chantry House is one of Henley’s oldest dwellings, built for priests serving the adjacent church and now a picturesque timbered house overlooking the river. A recent restoration uncovered layers of alteration, offering a way to talk about medieval religion, Reformation upheavals, Georgian gentrification and modern conservation, all in one crooked building.",
-   "latitude": 51.53803692,
-   "longitude": -0.901386334,
+   "latitude": 51.5380900673539,
+   "longitude": -0.9018217025853054,
    "country": "",
    "area": "Henley-on-Thames",
    "address": "Hart St, Henley-on-Thames RG9 2AT",
@@ -2029,4 +2029,5 @@
  }
 
 ]
+
 
