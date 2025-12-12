@@ -2036,8 +2036,8 @@
     "tags": ["civic", "Victorian", "Baroque"],
     "inscription": "You’re standing in front of Henley’s grand, stone-fronted statement piece, the town hall that still presides over markets and parades. When this hall was going up around 1900, British troops were fighting in the Boer War, Queen Victoria was in her final years on the throne, and no one had yet heard of the Titanic or the First World War.",
     "short_summary": "Imposing 1901 Baroque-style town hall by Henry Hare, built to celebrate Queen Victoria’s Diamond Jubilee and now Grade II* listed.",
-    "lat": null,
-    "lng": null,
+    "lat": 51.5374407742,
+    "lng": -0.9060638915,
     "lead_subject_primary_role": "Henley’s Historic Architecture",
     "lead_subject_bio": ""
   },
@@ -2050,8 +2050,8 @@
     "tags": ["medieval", "timber-framed"],
     "inscription": "Look past the neat shopfront and imagine a dark, smoky hall behind it, hearth blazing, timber beams soaking up centuries of soot. When the original house was built in 1353, England was still reeling from the Black Death of just a few years earlier, and Edward III was fighting the Hundred Years’ War in France.",
     "short_summary": "Behind the later frontage survives a smoke-blackened 14th-century hall house, dendro-dated to 1353 – one of Henley’s oldest domestic buildings.",
-    "lat": null,
-    "lng": null,
+    "lat": 51.53714795,
+    "lng": -0.9065981586,
     "lead_subject_primary_role": "Henley’s Historic Architecture",
     "lead_subject_bio": ""
   },
@@ -2364,6 +2364,7 @@
     "lead_subject_bio": ""
   }
 ]
+
 
 
 
