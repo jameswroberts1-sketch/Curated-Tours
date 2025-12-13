@@ -1,575 +1,577 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Curated Tours</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        plaque: {
-                            blue: '#1e3a8a',
-                            gold: '#fbbf24',
-                            light: '#eff6ff',
-                        }
-                    },
-                    animation: {
-                        'bounce-short': 'bounce 1s infinite 2',
-                    }
-                }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Curated Tours</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            plaque: {
+              blue: '#1e3a8a',
+              gold: '#fbbf24',
+              light: '#eff6ff',
             }
+          },
+          animation: {
+            'bounce-short': 'bounce 1s infinite 2',
+          }
         }
-    </script>
-    <style>
-        /* Custom scrollbar for cleanliness */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #999; }
-    </style>
+      }
+    }
+  </script>
+  <style>
+    /* Custom scrollbar for cleanliness */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #f1f1f1;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #ccc;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #999;
+    }
+  </style>
 </head>
+
 <body class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen pb-10">
 
-    <!-- Header Section -->
-<header class="bg-white shadow-sm relative z-20 pt-6">
-  <div class="max-w-2xl mx-auto px-4 pb-4 flex items-center justify-between">
-    <!-- Left spacer (keeps logo centred vs heart icon) -->
-    <div class="w-8"></div>
+  <!-- Header Section -->
+  <header class="bg-white shadow-sm relative z-20 pt-6">
+    <div class="max-w-2xl mx-auto px-4 pb-4 flex items-center justify-between">
+      <!-- Left spacer (keeps logo centred vs heart icon) -->
+      <div class="w-8"></div>
 
-    <!-- Centre logo + tagline -->
-    <div
-      class="flex-1 flex flex-col items-center cursor-pointer"
-      onclick="app.goHome()"
-    >
-      <img
-        src="https://raw.githubusercontent.com/jameswroberts1-sketch/Curated-Tours/refs/heads/main/Logo.jpg"
-        alt="Curated Tours logo"
-        class="h-32 w-auto object-contain"
-        onerror="this.style.display='none';"
-      >
-      <!-- Keep the tagline for now -->
-      <p class="text-sm text-gray-500 mt-2">
-        Sifting city streets for ghosts
-      </p>
+      <!-- Centre logo + tagline -->
+      <div class="flex-1 flex flex-col items-center cursor-pointer" onclick="app.goHome()">
+        <img src="https://raw.githubusercontent.com/jameswroberts1-sketch/Curated-Tours/refs/heads/main/Logo.jpg"
+          alt="Curated Tours logo" class="h-32 w-auto object-contain" onerror="this.style.display='none';">
+        <!-- Keep the tagline for now -->
+        <p class="text-sm text-gray-500 mt-2">
+          Sifting city streets for ghosts
+        </p>
+      </div>
+
+      <!-- Right Action (Favorites) -->
+      <div class="w-8 flex justify-end z-10">
+        <button onclick="app.goFavorites()" class="p-2 text-gray-500 hover:text-red-500 transition-colors"
+          aria-label="Favorites">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+            stroke="currentColor" class="w-6 h-6">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
+          </svg>
+        </button>
+      </div>
     </div>
+  </header>
 
-    <!-- Right Action (Favorites) -->
-    <div class="w-8 flex justify-end z-10">
-      <button
-        onclick="app.goFavorites()"
-        class="p-2 text-gray-500 hover:text-red-500 transition-colors"
-        aria-label="Favorites"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none"
-             viewBox="0 0 24 24" stroke-width="1.5"
-             stroke="currentColor" class="w-6 h-6">
-          <path stroke-linecap="round" stroke-linejoin="round"
-                d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
-        </svg>
-      </button>
-    </div>
-  </div>
-</header>
+  <!-- Main App Container -->
+  <main id="app" class="max-w-2xl mx-auto px-4 pt-0 pb-6">
+    <!-- Dynamic Content Rendered Here -->
+  </main>
 
-    <!-- Main App Container -->
-    <main id="app" class="max-w-2xl mx-auto px-4 pt-0 pb-6">
-        <!-- Dynamic Content Rendered Here -->
-    </main>
-
-    <!-- Bottom Navigation (filled by JS) -->
-    <nav id="bottom-nav"
-         class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200
+  <!-- Bottom Navigation (filled by JS) -->
+  <nav id="bottom-nav" class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200
                 shadow-[0_-4px_10px_rgba(0,0,0,0.04)] z-30">
-    </nav>
+  </nav>
 
-    <!-- JavaScript Logic -->
-    <script>
-        // --- Constants ---
-        const CITIES = [
-    {
+  <!-- JavaScript Logic -->
+  <script>
+    // --- Constants ---
+    const CITIES = [
+      {
         name: 'Collections',
         url: 'https://raw.githubusercontent.com/jameswroberts1-sketch/Curated-Tours/refs/heads/main/Collections.json',
         defaultLat: 51.5074,
         defaultLng: -0.1278,
         exampleAddress: 'Camden or Marylebone etc.'
-    }
-    //{
-    //    name: 'Manchester',
-    //    url: 'https://raw.githubusercontent.com/jameswroberts1-sketch/PlaqueLark/refs/heads/main/Manchester.json',
-    //    defaultLat: 53.4808,
-    //    defaultLng: -2.2426,
-    //    exampleAddress: "St Peter's Square"
-    //}
-];
-        const STORAGE_KEY = 'collections_saved_tours';
-        const MAX_TOUR_SIZE = 10;
-        const AUDIO_TRIGGER_DISTANCE = 0.0062; // ~10 meters in miles
-        const PRICE_BASE = 2.99;       // £ base
-        const PRICE_PER_STOP = 0.50;   // £ per stop
+      }
+      //{
+      //    name: 'Manchester',
+      //    url: 'https://raw.githubusercontent.com/jameswroberts1-sketch/PlaqueLark/refs/heads/main/Manchester.json',
+      //    defaultLat: 53.4808,
+      //    defaultLng: -2.2426,
+      //    exampleAddress: "St Peter's Square"
+      //}
+    ];
+    const STORAGE_KEY = 'collections_saved_tours';
+    const MAX_TOUR_SIZE = 10;
+    const AUDIO_TRIGGER_DISTANCE = 0.0062; // ~10 meters in miles
+    const PRICE_BASE = 2.99;       // £ base
+    const PRICE_PER_STOP = 0.50;   // £ per stop
 
-        // --- State ---
-const state = {
-    view: 'HOME', // HOME, PREVIEW, TOUR, FAVORITES, COLOURS, GUIDE
-    loading: false,
-    error: null,
+    // --- State ---
+    const state = {
+      view: 'HOME', // HOME, PREVIEW, TOUR, FAVORITES, COLOURS, GUIDE
+      loading: false,
+      error: null,
 
-    cityIndex: 0,          // still used for the single Collections.json entry
-    selectedCity: '',      // NEW: city chosen from `area`
+      cityIndex: 0,          // still used for the single Collections.json entry
+      selectedCity: '',      // NEW: city chosen from `area`
 
-    locationMethod: 'GPS',
-    manualAddress: '',
-    radius: 1,
-    stops: 5,
+      locationMethod: 'GPS',
+      manualAddress: '',
+      radius: 1,
+      stops: 5,
 
-    collection: '',        // selected lead_subject_primary_role
-    // category is no longer used as a free-text filter
-    category: '',          // (you can delete this later if you like)
+      collection: '',        // selected lead_subject_primary_role
+      // category is no longer used as a free-text filter
+      category: '',          // (you can delete this later if you like)
 
-    availableCities: [],       // NEW: distinct values from `area`
-    availableCollections: [],  // collections for the chosen city
+      availableCities: [],       // NEW: distinct values from `area`
+      availableCollections: [],  // collections for the chosen city
 
-    candidatePlaques: [],
-    activeTour: [],
-    selectedForRemoval: new Set(),
-    isAutoPlay: false,
-    playedPlaques: new Set(),
-    userLocation: null,
-    watchId: null,
-    bioCache: {},
-    isPlanned: false,
-    startHint: '',
-    allPlaques: [],         // NEW: cache of everything from Collections.json
-    currentSpeechPlaqueId: null,
-    isSpeechPlaying: false,
-    isSpeechPaused: false,
-    tourDistanceMiles: 0,
-    tourWalkMinutes: 0,
-    tourTotalMinutes: 0,
-    tourPrice: 0,
-    activeTourMeta: {
+      candidatePlaques: [],
+      activeTour: [],
+      selectedForRemoval: new Set(),
+      isAutoPlay: false,
+      playedPlaques: new Set(),
+      userLocation: null,
+      watchId: null,
+      bioCache: {},
+      isPlanned: false,
+      startHint: '',
+      allPlaques: [],         // NEW: cache of everything from Collections.json
+      currentSpeechPlaqueId: null,
+      isSpeechPlaying: false,
+      isSpeechPaused: false,
+      tourDistanceMiles: 0,
+      tourWalkMinutes: 0,
+      tourTotalMinutes: 0,
+      tourPrice: 0,
+      activeTourMeta: {
         id: null,       // id in localStorage, if any
         isPaid: false,  // has this exact tour been paid for?
       },
-    // NEW: planning-stage “mark for replacement” selection
-    planningMarkedForReplace: new Set(),
-};
-
-// --- Services: Geo ---
-const Geo = {
-  calculateDistance: (lat1, lon1, lat2, lon2) => {
-    const toRad = (value) => (value * Math.PI) / 180;
-    const R = 3958.8; // Miles
-    const dLat = toRad(lat2 - lat1);
-    const dLon = toRad(lon2 - lon1);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.sin(dLon / 2) * Math.sin(dLon / 2) *
-        Math.cos(toRad(lat1)) *
-        Math.cos(toRad(lat2));
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  },
-
-  getCurrentPosition: () => {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) reject('Geolocation not supported');
-      else
-        navigator.geolocation.getCurrentPosition(
-          (pos) =>
-            resolve({
-              latitude: pos.coords.latitude,
-              longitude: pos.coords.longitude,
-            }),
-          (err) => reject(err)
-        );
-    });
-  },
-
-  optimizeRoute: (startLoc, plaques) => {
-    if (plaques.length <= 2) return plaques;
-
-    const hasAllCoords = plaques.every(
-      (p) => Number.isFinite(p.latitude) && Number.isFinite(p.longitude)
-    );
-    if (!hasAllCoords) return plaques;
-
-    // 1. Nearest neighbour
-    const pool = [...plaques];
-    const route = [];
-    let current = { latitude: startLoc.latitude, longitude: startLoc.longitude };
-
-    while (pool.length > 0) {
-      let nearestIdx = -1;
-      let minDist = Infinity;
-      for (let i = 0; i < pool.length; i++) {
-        const dist = Geo.calculateDistance(
-          current.latitude,
-          current.longitude,
-          pool[i].latitude,
-          pool[i].longitude
-        );
-        if (dist < minDist) {
-          minDist = dist;
-          nearestIdx = i;
-        }
-      }
-      const next = pool[nearestIdx];
-      route.push(next);
-      current = { latitude: next.latitude, longitude: next.longitude };
-      pool.splice(nearestIdx, 1);
-    }
-
-    // 2. 2-opt
-    const totalRouteDistance = (r) => {
-      let sum = 0;
-      let prev = { latitude: startLoc.latitude, longitude: startLoc.longitude };
-      for (const p of r) {
-        sum += Geo.calculateDistance(
-          prev.latitude,
-          prev.longitude,
-          p.latitude,
-          p.longitude
-        );
-        prev = p;
-      }
-      return sum;
+      // NEW: planning-stage “mark for replacement” selection
+      planningMarkedForReplace: new Set(),
     };
 
-    const twoOptSwap = (r, i, k) => [
-      ...r.slice(0, i),
-      ...r.slice(i, k + 1).reverse(),
-      ...r.slice(k + 1),
-    ];
+    // --- Services: Geo ---
+    const Geo = {
+      calculateDistance: (lat1, lon1, lat2, lon2) => {
+        const toRad = (value) => (value * Math.PI) / 180;
+        const R = 3958.8; // Miles
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.sin(dLon / 2) * Math.sin(dLon / 2) *
+          Math.cos(toRad(lat1)) *
+          Math.cos(toRad(lat2));
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+      },
 
-    let improved = true;
-    let bestRoute = route;
-    let bestDistance = totalRouteDistance(bestRoute);
+      getCurrentPosition: () => {
+        return new Promise((resolve, reject) => {
+          if (!navigator.geolocation) reject('Geolocation not supported');
+          else
+            navigator.geolocation.getCurrentPosition(
+              (pos) =>
+                resolve({
+                  latitude: pos.coords.latitude,
+                  longitude: pos.coords.longitude,
+                }),
+              (err) => reject(err)
+            );
+        });
+      },
 
-    while (improved) {
-      improved = false;
-      for (let i = 0; i < bestRoute.length - 1; i++) {
-        for (let k = i + 1; k < bestRoute.length; k++) {
-          const newRoute = twoOptSwap(bestRoute, i, k);
-          const newDistance = totalRouteDistance(newRoute);
-          if (newDistance + 1e-9 < bestDistance) {
-            bestRoute = newRoute;
-            bestDistance = newDistance;
-            improved = true;
+      optimizeRoute: (startLoc, plaques) => {
+        if (plaques.length <= 2) return plaques;
+
+        const hasAllCoords = plaques.every(
+          (p) => Number.isFinite(p.latitude) && Number.isFinite(p.longitude)
+        );
+        if (!hasAllCoords) return plaques;
+
+        // 1. Nearest neighbour
+        const pool = [...plaques];
+        const route = [];
+        let current = { latitude: startLoc.latitude, longitude: startLoc.longitude };
+
+        while (pool.length > 0) {
+          let nearestIdx = -1;
+          let minDist = Infinity;
+          for (let i = 0; i < pool.length; i++) {
+            const dist = Geo.calculateDistance(
+              current.latitude,
+              current.longitude,
+              pool[i].latitude,
+              pool[i].longitude
+            );
+            if (dist < minDist) {
+              minDist = dist;
+              nearestIdx = i;
+            }
+          }
+          const next = pool[nearestIdx];
+          route.push(next);
+          current = { latitude: next.latitude, longitude: next.longitude };
+          pool.splice(nearestIdx, 1);
+        }
+
+        // 2. 2-opt
+        const totalRouteDistance = (r) => {
+          let sum = 0;
+          let prev = { latitude: startLoc.latitude, longitude: startLoc.longitude };
+          for (const p of r) {
+            sum += Geo.calculateDistance(
+              prev.latitude,
+              prev.longitude,
+              p.latitude,
+              p.longitude
+            );
+            prev = p;
+          }
+          return sum;
+        };
+
+        const twoOptSwap = (r, i, k) => [
+          ...r.slice(0, i),
+          ...r.slice(i, k + 1).reverse(),
+          ...r.slice(k + 1),
+        ];
+
+        let improved = true;
+        let bestRoute = route;
+        let bestDistance = totalRouteDistance(bestRoute);
+
+        while (improved) {
+          improved = false;
+          for (let i = 0; i < bestRoute.length - 1; i++) {
+            for (let k = i + 1; k < bestRoute.length; k++) {
+              const newRoute = twoOptSwap(bestRoute, i, k);
+              const newDistance = totalRouteDistance(newRoute);
+              if (newDistance + 1e-9 < bestDistance) {
+                bestRoute = newRoute;
+                bestDistance = newDistance;
+                improved = true;
+              }
+            }
           }
         }
-      }
-    }
 
-    return bestRoute;
-  },
+        return bestRoute;
+      },
 
-  generateMapsPreviewUrl: (plaques) => {
-    if (!plaques.length) return '';
+      generateMapsPreviewUrl: (plaques) => {
+        if (!plaques.length) return '';
 
-    const baseUrl = "https://www.google.com/maps/dir/?api=1";
+        const baseUrl = "https://www.google.com/maps/dir/?api=1";
 
-    const getLoc = (p) => {
-      const hasCoords =
-        Number.isFinite(p.latitude) && Number.isFinite(p.longitude);
+        const getLoc = (p) => {
+          const hasCoords =
+            Number.isFinite(p.latitude) && Number.isFinite(p.longitude);
 
-      if (hasCoords) {
-        return `${p.latitude},${p.longitude}`;
-      }
-      return encodeURIComponent((p.address || '').trim());
-    };
+          if (hasCoords) {
+            return `${p.latitude},${p.longitude}`;
+          }
+          return encodeURIComponent((p.address || '').trim());
+        };
 
-    const dest = getLoc(plaques[plaques.length - 1]);
+        const dest = getLoc(plaques[plaques.length - 1]);
 
-    let origin = '';
-    let waypointPlaques = [];
+        let origin = '';
+        let waypointPlaques = [];
 
-    if (state.locationMethod === 'MANUAL') {
-      origin = getLoc(plaques[0]);          // planned start
-      waypointPlaques = plaques.slice(1, -1);
-    } else {
-      if (state.userLocation) {
-        origin = `${state.userLocation.latitude},${state.userLocation.longitude}`;
-      }
-      waypointPlaques = plaques.slice(0, -1);
-    }
+        if (state.locationMethod === 'MANUAL') {
+          origin = getLoc(plaques[0]);          // planned start
+          waypointPlaques = plaques.slice(1, -1);
+        } else {
+          if (state.userLocation) {
+            origin = `${state.userLocation.latitude},${state.userLocation.longitude}`;
+          }
+          waypointPlaques = plaques.slice(0, -1);
+        }
 
-    const waypoints = waypointPlaques.map(p => getLoc(p)).join('|');
+        const waypoints = waypointPlaques.map(p => getLoc(p)).join('|');
 
-    let url = `${baseUrl}&destination=${dest}&travelmode=walking`;
-    if (origin) url += `&origin=${origin}`;
-    if (waypoints) url += `&waypoints=${waypoints}`;
+        let url = `${baseUrl}&destination=${dest}&travelmode=walking`;
+        if (origin) url += `&origin=${origin}`;
+        if (waypoints) url += `&waypoints=${waypoints}`;
 
-    return url;
-  },
+        return url;
+      },
 
-  generateMapsNavUrl: (plaques) => {
-    if (!plaques.length) return '';
+      generateMapsNavUrl: (plaques) => {
+        if (!plaques.length) return '';
 
-    const baseUrl = "https://www.google.com/maps/dir/?api=1";
+        const baseUrl = "https://www.google.com/maps/dir/?api=1";
 
-    const getLoc = (p) => {
-      const hasCoords =
-        Number.isFinite(p.latitude) && Number.isFinite(p.longitude);
+        const getLoc = (p) => {
+          const hasCoords =
+            Number.isFinite(p.latitude) && Number.isFinite(p.longitude);
 
-      if (hasCoords) {
-        return `${p.latitude},${p.longitude}`;
-      }
-      return encodeURIComponent((p.address || '').trim());
-    };
+          if (hasCoords) {
+            return `${p.latitude},${p.longitude}`;
+          }
+          return encodeURIComponent((p.address || '').trim());
+        };
 
-    const dest = getLoc(plaques[plaques.length - 1]);
-    const waypointPlaques = plaques.slice(0, -1);
-    const waypoints = waypointPlaques.map(p => getLoc(p)).join('|');
+        const dest = getLoc(plaques[plaques.length - 1]);
+        const waypointPlaques = plaques.slice(0, -1);
+        const waypoints = waypointPlaques.map(p => getLoc(p)).join('|');
 
-    let url = `${baseUrl}&destination=${dest}&travelmode=walking`;
-    if (waypoints) url += `&waypoints=${waypoints}`;
+        let url = `${baseUrl}&destination=${dest}&travelmode=walking`;
+        if (waypoints) url += `&waypoints=${waypoints}`;
 
-    return url;
-  },
+        return url;
+      },
 
-  // find densest cluster of plaques within a radius
-  findBestCluster: (plaques, radiusMiles) => {
-    const points = plaques.filter(p =>
-      Number.isFinite(p.latitude) && Number.isFinite(p.longitude)
-    );
-
-    if (!points.length) {
-      return { center: null, members: [] };
-    }
-
-    let bestIndex = 0;
-    let bestCount = 1;
-
-    for (let i = 0; i < points.length; i++) {
-      const pivot = points[i];
-      let count = 0;
-
-      for (let j = 0; j < points.length; j++) {
-        const other = points[j];
-        const dist = Geo.calculateDistance(
-          pivot.latitude,
-          pivot.longitude,
-          other.latitude,
-          other.longitude
+      // find densest cluster of plaques within a radius
+      findBestCluster: (plaques, radiusMiles) => {
+        const points = plaques.filter(p =>
+          Number.isFinite(p.latitude) && Number.isFinite(p.longitude)
         );
-        if (dist <= radiusMiles) count++;
-      }
 
-      if (count > bestCount) {
-        bestCount = count;
-        bestIndex = i;
-      }
-    }
+        if (!points.length) {
+          return { center: null, members: [] };
+        }
 
-    const centerPlaque = points[bestIndex];
-    const center = {
-      latitude: centerPlaque.latitude,
-      longitude: centerPlaque.longitude
+        let bestIndex = 0;
+        let bestCount = 1;
+
+        for (let i = 0; i < points.length; i++) {
+          const pivot = points[i];
+          let count = 0;
+
+          for (let j = 0; j < points.length; j++) {
+            const other = points[j];
+            const dist = Geo.calculateDistance(
+              pivot.latitude,
+              pivot.longitude,
+              other.latitude,
+              other.longitude
+            );
+            if (dist <= radiusMiles) count++;
+          }
+
+          if (count > bestCount) {
+            bestCount = count;
+            bestIndex = i;
+          }
+        }
+
+        const centerPlaque = points[bestIndex];
+        const center = {
+          latitude: centerPlaque.latitude,
+          longitude: centerPlaque.longitude
+        };
+
+        const members = points.filter(p =>
+          Geo.calculateDistance(
+            center.latitude,
+            center.longitude,
+            p.latitude,
+            p.longitude
+          ) <= radiusMiles
+        );
+
+        return { center, members };
+      },
+
+      computeTourStats: (startLoc, plaques) => {
+        let distance = 0;
+        let prev = { latitude: startLoc.latitude, longitude: startLoc.longitude };
+
+        for (const p of plaques) {
+          if (Number.isFinite(p.latitude) && Number.isFinite(p.longitude)) {
+            distance += Geo.calculateDistance(
+              prev.latitude,
+              prev.longitude,
+              p.latitude,
+              p.longitude
+            );
+            prev = { latitude: p.latitude, longitude: p.longitude };
+          }
+        }
+
+        const walkingMinutes = distance * 20; // ~3 mph
+        return { distanceMiles: distance, walkingMinutes };
+      }
     };
 
-    const members = points.filter(p =>
-      Geo.calculateDistance(
-        center.latitude,
-        center.longitude,
-        p.latitude,
-        p.longitude
-      ) <= radiusMiles
-    );
+    // --- Speech synthesis voice selection ---
+    let preferredVoice = null;
 
-    return { center, members };
-  },
+    function choosePreferredVoice() {
+      if (!('speechSynthesis' in window)) return null;
+      const voices = window.speechSynthesis.getVoices();
+      if (!voices || !voices.length) return null;
 
-  computeTourStats: (startLoc, plaques) => {
-    let distance = 0;
-    let prev = { latitude: startLoc.latitude, longitude: startLoc.longitude };
-
-    for (const p of plaques) {
-      if (Number.isFinite(p.latitude) && Number.isFinite(p.longitude)) {
-        distance += Geo.calculateDistance(
-          prev.latitude,
-          prev.longitude,
-          p.latitude,
-          p.longitude
-        );
-        prev = { latitude: p.latitude, longitude: p.longitude };
-      }
-    }
-
-    const walkingMinutes = distance * 20; // ~3 mph
-    return { distanceMiles: distance, walkingMinutes };
-  }
-};
-        
-// --- Speech synthesis voice selection ---
-let preferredVoice = null;
-
-function choosePreferredVoice() {
-    if (!('speechSynthesis' in window)) return null;
-    const voices = window.speechSynthesis.getVoices();
-    if (!voices || !voices.length) return null;
-
-    // 1. Try an explicitly "UK English Female" style voice name
-    const explicitUkFemale = voices.find(v =>
+      // 1. Try an explicitly "UK English Female" style voice name
+      const explicitUkFemale = voices.find(v =>
         /UK English Female/i.test(v.name)
-    );
+      );
 
-    // 2. Any en-GB voice whose name looks like it might be female
-    const enGbFemale = voices.find(v =>
+      // 2. Any en-GB voice whose name looks like it might be female
+      const enGbFemale = voices.find(v =>
         v.lang === 'en-GB' && /female|woman|girl/i.test(v.name)
-    );
+      );
 
-    // 3. Any en-GB voice
-    const enGb = voices.find(v => v.lang === 'en-GB');
+      // 3. Any en-GB voice
+      const enGb = voices.find(v => v.lang === 'en-GB');
 
-    // 4. Any English voice
-    const anyEnglish = voices.find(v => v.lang && v.lang.startsWith('en'));
+      // 4. Any English voice
+      const anyEnglish = voices.find(v => v.lang && v.lang.startsWith('en'));
 
-    return explicitUkFemale || enGbFemale || enGb || anyEnglish || voices[0];
-}
+      return explicitUkFemale || enGbFemale || enGb || anyEnglish || voices[0];
+    }
 
-function initVoiceSupport() {
-    if (!('speechSynthesis' in window)) return;
+    function initVoiceSupport() {
+      if (!('speechSynthesis' in window)) return;
 
-    const assign = () => {
+      const assign = () => {
         preferredVoice = choosePreferredVoice();
         // console.log('Chosen voice:', preferredVoice);
-    };
-
-    // Try immediately
-    assign();
-
-    // Some browsers load voices async
-    window.speechSynthesis.onvoiceschanged = assign;
-}
-
-// --- Services: API ---
-const Api = {
-  fetchPlaques: async (url) => {
-    const res = await fetch(url);
-    const data = await res.json();
-
-    return data.map((item, idx) => ({
-      id: String(item.id ?? `plaque-${idx}`),
-      title: item.title || 'Unknown Title',
-
-      // Collection / role
-      category: item.lead_subject_primary_role || item.category || '',
-
-      // City / area
-      area: item.area || '',
-
-      latitude: parseFloat(item.latitude),
-      longitude: parseFloat(item.longitude),
-      address: item.address || '',
-
-      // summary text shown on screen
-      summary:
-        item.inscription ||
-        item.subjects ||
-        item.summary ||
-        item.description ||
-        'No description available.',
-
-      // long-form bio text – audio only
-      bio: item.lead_subject_bio || ''
-    }));
-  },
-
-  geocode: async (query) => {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-        query
-      )}&limit=1`
-    );
-    const data = await res.json();
-    if (data && data.length) {
-      return {
-        latitude: parseFloat(data[0].lat),
-        longitude: parseFloat(data[0].lon),
       };
-    }
-    throw new Error('Location not found');
-  },
 
-  // reverse geocoding for startHint / display text
-  reverseGeocode: async (loc) => {
-    const { latitude, longitude } = loc;
+      // Try immediately
+      assign();
 
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=16&addressdetails=1`
-    );
-    const data = await res.json();
-
-    if (data && data.display_name) {
-      return data.display_name;
+      // Some browsers load voices async
+      window.speechSynthesis.onvoiceschanged = assign;
     }
 
-    if (data && data.address) {
-      const { road, suburb, city, town, village, state, postcode } = data.address;
-      const line = [road, suburb || city || town || village, state, postcode]
-        .filter(Boolean)
-        .join(', ');
-      if (line) return line;
-    }
+    // --- Services: API ---
+    const Api = {
+      fetchPlaques: async (url) => {
+        const res = await fetch(url);
+        const data = await res.json();
 
-    // Fallback to raw coords if nothing nicer
-    return `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
-  }
-};
-        // --- Icons (SVG Strings) ---
-        const Icons = {
-            Refresh: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>`,
-            Speaker: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" /></svg>`,
-            SpeakerWave: (animate) => `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 ${animate ? 'animate-pulse' : ''}"><path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5" /></svg>`,
-            MapPin: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" /></svg>`,
-            Heart: (filled) => `<svg xmlns="http://www.w3.org/2000/svg" fill="${filled ? 'currentColor' : 'none'}" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" /></svg>`,
-            Trash: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>`,
-            ArrowLeft: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>`,
-            Play: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clip-rule="evenodd" /></svg>`,
-            Flag: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M3 2.25a.75.75 0 0 1 .75.75v.54l1.838-.46a9.75 9.75 0 0 1 6.725.738l.108.054a8.25 8.25 0 0 0 5.58.652l3.109-.732a.75.75 0 0 1 .917.81 47.784 47.784 0 0 0 .005 10.337.75.75 0 0 1-.574.812l-3.114.733a9.75 9.75 0 0 1-6.594-.158l-.108-.054a8.25 8.25 0 0 0-5.69-.625l-2.202.55V21a.75.75 0 0 1-1.5 0V3A.75.75 0 0 1 3 2.25Z" clip-rule="evenodd" /></svg>`,
+        return data.map((item, idx) => ({
+          id: String(item.id ?? `plaque-${idx}`),
+          title: item.title || 'Unknown Title',
 
-            HomeTab: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+          // Collection / role
+          category: item.lead_subject_primary_role || item.category || '',
+
+          // City / area
+          area: item.area || '',
+
+          latitude: parseFloat(item.latitude),
+          longitude: parseFloat(item.longitude),
+          address: item.address || '',
+
+          // summary text shown on screen
+          summary:
+            item.inscription ||
+            item.subjects ||
+            item.summary ||
+            item.description ||
+            'No description available.',
+
+          // long-form bio text – audio only
+          bio: item.lead_subject_bio || ''
+        }));
+      },
+
+      geocode: async (query) => {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+            query
+          )}&limit=1`
+        );
+        const data = await res.json();
+        if (data && data.length) {
+          return {
+            latitude: parseFloat(data[0].lat),
+            longitude: parseFloat(data[0].lon),
+          };
+        }
+        throw new Error('Location not found');
+      },
+
+      // reverse geocoding for startHint / display text
+      reverseGeocode: async (loc) => {
+        const { latitude, longitude } = loc;
+
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=16&addressdetails=1`
+        );
+        const data = await res.json();
+
+        if (data && data.display_name) {
+          return data.display_name;
+        }
+
+        if (data && data.address) {
+          const { road, suburb, city, town, village, state, postcode } = data.address;
+          const line = [road, suburb || city || town || village, state, postcode]
+            .filter(Boolean)
+            .join(', ');
+          if (line) return line;
+        }
+
+        // Fallback to raw coords if nothing nicer
+        return `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+      }
+    };
+    // --- Icons (SVG Strings) ---
+    const Icons = {
+      Refresh: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>`,
+      Speaker: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" /></svg>`,
+      SpeakerWave: (animate) => `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 ${animate ? 'animate-pulse' : ''}"><path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5" /></svg>`,
+      MapPin: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" /></svg>`,
+      Heart: (filled) => `<svg xmlns="http://www.w3.org/2000/svg" fill="${filled ? 'currentColor' : 'none'}" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" /></svg>`,
+      Trash: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>`,
+      ArrowLeft: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>`,
+      Play: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clip-rule="evenodd" /></svg>`,
+      Flag: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M3 2.25a.75.75 0 0 1 .75.75v.54l1.838-.46a9.75 9.75 0 0 1 6.725.738l.108.054a8.25 8.25 0 0 0 5.58.652l3.109-.732a.75.75 0 0 1 .917.81 47.784 47.784 0 0 0 .005 10.337.75.75 0 0 1-.574.812l-3.114.733a9.75 9.75 0 0 1-6.594-.158l-.108-.054a8.25 8.25 0 0 0-5.69-.625l-2.202.55V21a.75.75 0 0 1-1.5 0V3A.75.75 0 0 1 3 2.25Z" clip-rule="evenodd" /></svg>`,
+
+      HomeTab: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
                             fill="none" stroke="currentColor" stroke-width="1.5"
                             class="w-5 h-5">
                           <path stroke-linecap="round" stroke-linejoin="round"
                                 d="M2.25 12l9.193-8.308a.75.75 0 0 1 1.014 0L21.75 12M4.5 10.5v9.75A1.5 1.5 0 0 0 6 21.75h12a1.5 1.5 0 0 0 1.5-1.5v-9.75" />
                        </svg>`,
 
-            GuideTab: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+      GuideTab: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
                              fill="none" stroke="currentColor" stroke-width="1.5"
                              class="w-5 h-5">
                            <path stroke-linecap="round" stroke-linejoin="round"
                                  d="M4.5 5.25A2.25 2.25 0 0 1 6.75 3h10.5A2.25 2.25 0 0 1 19.5 5.25v13.5L15 16.5l-4.5 2.25L6 16.5l-1.5 2.25z" />
                        </svg>`,
 
-            ColoursTab: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+      ColoursTab: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
                                fill="none" stroke="currentColor" stroke-width="1.5"
                                class="w-5 h-5">
                              <path stroke-linecap="round" stroke-linejoin="round"
                                    d="M15.75 3.75a6.75 6.75 0 0 1 0 13.5h-1.086a1.5 1.5 0 0 0-1.06.44l-2.707 2.707A.75.75 0 0 1 9 19.69v-2.44a1.5 1.5 0 0 0-1.5-1.5A4.5 4.5 0 0 1 3 11.25 7.5 7.5 0 0 1 10.5 3.75h5.25z" />
                        </svg>`,
 
-            FavsTab: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+      FavsTab: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
                             fill="none" stroke="currentColor" stroke-width="1.5"
                             class="w-5 h-5">
                           <path stroke-linecap="round" stroke-linejoin="round"
                                 d="M11.48 3.499a.75.75 0 0 1 1.04 0l2.122 2.122 3.004.437a.75.75 0 0 1 .416 1.28l-2.173 2.119.513 3a.75.75 0 0 1-1.088.791L12 12.97l-2.714 1.427a.75.75 0 0 1-1.088-.79l.513-3-2.173-2.12a.75.75 0 0 1 .416-1.279l3.004-.437z" />
                        </svg>`,
 
-            Pause: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+      Pause: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
                           fill="currentColor" class="w-4 h-4">
                         <path d="M6.75 5.25h2.5a.75.75 0 0 1 .75.75v12a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1-.75-.75v-12a.75.75 0 0 1 .75-.75zm8 0h2.5a.75.75 0 0 1 .75.75v12a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1-.75-.75v-12a.75.75 0 0 1 .75-.75z" />
                     </svg>`,
 
-            Stop: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+      Stop: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
                           fill="currentColor" class="w-4 h-4">
                         <path d="M6.75 5.25h10.5a1.5 1.5 0 0 1 1.5 1.5v10.5a1.5 1.5 0 0 1-1.5 1.5H6.75a1.5 1.5 0 0 1-1.5-1.5V6.75a1.5 1.5 0 0 1 1.5-1.5z" />
                     </svg>`,
 
-            PadlockLocked: `
+      PadlockLocked: `
                     <svg xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 24 24"
                     fill="none"
@@ -581,7 +583,7 @@ const Api = {
                     </svg>
                     `,
 
-            PadlockUnlocked: `
+      PadlockUnlocked: `
                     <svg xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 24 24"
                     fill="none"
@@ -592,167 +594,167 @@ const Api = {
                     d="M8.25 10.5V7a3.75 3.75 0 017.5 0M7.5 10.5h9A1.5 1.5 0 0118 12v6a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 016 18v-6a1.5 1.5 0 011.5-1.5z" />
                     </svg>
                     `,
-        };
-
-        // --- Application Controller ---
-        const app = {
-            init: () => {
-                initVoiceSupport();
-                app.loadCategories();
-                app.render();
-            },
-
-            // Generic view setter (we'll use this for the bottom nav later)
-            setView: (view) => {
-                state.view = view;
-                app.stopAudioWatch();
-                app.render();
-            },
-
-            // View Switchers
-            goHome: () => {
-                state.view = 'HOME';
-                state.activeTour = [];
-                state.selectedForRemoval = new Set();
-                app.stopAudioWatch();
-                app.render();
-            },
-
-            goFavorites: () => {
-                state.view = 'FAVORITES';
-                app.stopAudioWatch();
-                app.render();
-            },
-            goToPaidTour: () => {
-                app.markTourPaidAndSave();   // NEW
-                state.view = 'TOUR';
-                app.render();
-            },
-            markTourPaidAndSave: () => {
-  if (!state.activeTour.length) return;
-
-  const cityName =
-    state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
-
-  const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-
-  let id = state.activeTourMeta && state.activeTourMeta.id;
-
-  // Prepare a default tour name if we need to create a new entry
-  const defaultName = state.isPlanned
-    ? `${cityName} – ${state.startHint || 'planned walk'}`
-    : `${cityName} walk`;
-
-  // If this tour already exists in favourites, update that record
-  if (id) {
-    const idx = existing.findIndex((t) => t.id === id);
-    if (idx !== -1) {
-      existing[idx] = {
-        ...existing[idx],
-        cityName,
-        plaques: state.activeTour,
-        isPlanned: state.isPlanned,
-        startHint: state.startHint,
-        distanceMiles: state.tourDistanceMiles,
-        walkMinutes: state.tourWalkMinutes,
-        totalMinutes: state.tourTotalMinutes,
-        price: state.tourPrice,
-        isPaid: true,
-      };
-    } else {
-      // If somehow the id isn’t in storage, fall back to creating a new entry
-      id = null;
-    }
-  }
-
-  // If there is no existing entry, create one automatically
-  if (!id) {
-    id = Date.now().toString();
-    const tour = {
-      id,
-      name: defaultName,
-      date: new Date().toISOString(),
-      cityName,
-      plaques: state.activeTour,
-      isPlanned: state.isPlanned,
-      startHint: state.startHint,
-      distanceMiles: state.tourDistanceMiles,
-      walkMinutes: state.tourWalkMinutes,
-      totalMinutes: state.tourTotalMinutes,
-      price: state.tourPrice,
-      isPaid: true,
     };
-    existing.unshift(tour);
-  }
 
-  state.activeTourMeta = { id, isPaid: true };
+    // --- Application Controller ---
+    const app = {
+      init: () => {
+        initVoiceSupport();
+        app.loadCategories();
+        app.render();
+      },
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
-},
-            
-            // Update State Actions
-            setMethod: (method) => { state.locationMethod = method; app.render(); },
-            setAddress: (val) => { state.manualAddress = val; },
-            setRadius: (val) => { state.radius = parseFloat(val); document.getElementById('radius-val').innerText = val + ' mi'; },
-            setStops: (val) => { state.stops = parseInt(val); document.getElementById('stops-val').innerText = val; },
+      // Generic view setter (we'll use this for the bottom nav later)
+      setView: (view) => {
+        state.view = view;
+        app.stopAudioWatch();
+        app.render();
+      },
 
-            setCityFilter: (cityName) => {
-            state.selectedCity = cityName;
+      // View Switchers
+      goHome: () => {
+        state.view = 'HOME';
+        state.activeTour = [];
+        state.selectedForRemoval = new Set();
+        app.stopAudioWatch();
+        app.render();
+      },
 
-            const plaques = state.allPlaques || [];
-            const collectionsSet = new Set(
-                 plaques
-                       .filter(p => !cityName || p.area === cityName)
-                       .map(p => p.category)
-                       .filter(c => c && c.trim())
-              );
-           state.availableCollections = Array.from(collectionsSet).sort();
+      goFavorites: () => {
+        state.view = 'FAVORITES';
+        app.stopAudioWatch();
+        app.render();
+      },
+      goToPaidTour: () => {
+        app.markTourPaidAndSave();   // NEW
+        state.view = 'TOUR';
+        app.render();
+      },
+      markTourPaidAndSave: () => {
+        if (!state.activeTour.length) return;
 
-           // If the previously selected collection doesn’t exist for this city,
-           // default to the first one.
-           if (!state.availableCollections.includes(state.collection)) {
-               state.collection = state.availableCollections[0] || '';
-               }
-           app.render();
-           },
+        const cityName =
+          state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
 
-            setCollection: (val) => {
-                state.collection = val;
-                app.render();
-            },
+        const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
 
-                // ----------------------------
-    // PLANNING-STAGE KEEP/REPLACE
-    // ----------------------------
+        let id = state.activeTourMeta && state.activeTourMeta.id;
 
-    togglePlanningReplace: (id, checked) => {
+        // Prepare a default tour name if we need to create a new entry
+        const defaultName = state.isPlanned
+          ? `${cityName} – ${state.startHint || 'planned walk'}`
+          : `${cityName} walk`;
+
+        // If this tour already exists in favourites, update that record
+        if (id) {
+          const idx = existing.findIndex((t) => t.id === id);
+          if (idx !== -1) {
+            existing[idx] = {
+              ...existing[idx],
+              cityName,
+              plaques: state.activeTour,
+              isPlanned: state.isPlanned,
+              startHint: state.startHint,
+              distanceMiles: state.tourDistanceMiles,
+              walkMinutes: state.tourWalkMinutes,
+              totalMinutes: state.tourTotalMinutes,
+              price: state.tourPrice,
+              isPaid: true,
+            };
+          } else {
+            // If somehow the id isn’t in storage, fall back to creating a new entry
+            id = null;
+          }
+        }
+
+        // If there is no existing entry, create one automatically
+        if (!id) {
+          id = Date.now().toString();
+          const tour = {
+            id,
+            name: defaultName,
+            date: new Date().toISOString(),
+            cityName,
+            plaques: state.activeTour,
+            isPlanned: state.isPlanned,
+            startHint: state.startHint,
+            distanceMiles: state.tourDistanceMiles,
+            walkMinutes: state.tourWalkMinutes,
+            totalMinutes: state.tourTotalMinutes,
+            price: state.tourPrice,
+            isPaid: true,
+          };
+          existing.unshift(tour);
+        }
+
+        state.activeTourMeta = { id, isPaid: true };
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
+      },
+
+      // Update State Actions
+      setMethod: (method) => { state.locationMethod = method; app.render(); },
+      setAddress: (val) => { state.manualAddress = val; },
+      setRadius: (val) => { state.radius = parseFloat(val); document.getElementById('radius-val').innerText = val + ' mi'; },
+      setStops: (val) => { state.stops = parseInt(val); document.getElementById('stops-val').innerText = val; },
+
+      setCityFilter: (cityName) => {
+        state.selectedCity = cityName;
+
+        const plaques = state.allPlaques || [];
+        const collectionsSet = new Set(
+          plaques
+            .filter(p => !cityName || p.area === cityName)
+            .map(p => p.category)
+            .filter(c => c && c.trim())
+        );
+        state.availableCollections = Array.from(collectionsSet).sort();
+
+        // If the previously selected collection doesn’t exist for this city,
+        // default to the first one.
+        if (!state.availableCollections.includes(state.collection)) {
+          state.collection = state.availableCollections[0] || '';
+        }
+        app.render();
+      },
+
+      setCollection: (val) => {
+        state.collection = val;
+        app.render();
+      },
+
+      // ----------------------------
+      // PLANNING-STAGE KEEP/REPLACE
+      // ----------------------------
+
+      togglePlanningReplace: (id, checked) => {
         if (checked) state.planningMarkedForReplace.add(id);
         else state.planningMarkedForReplace.delete(id);
         // No need to re-render immediately – checkboxes handle themselves
-    },
+      },
 
-    resetPlanningSelection: () => {
+      resetPlanningSelection: () => {
         state.planningMarkedForReplace = new Set();
         app.render();
-    },
+      },
 
-    applyPlanningChanges: () => {
+      applyPlanningChanges: () => {
         const idsToReplace = Array.from(state.planningMarkedForReplace).map(String);
         if (!idsToReplace.length) {
-            alert('You haven’t selected any stops to replace on this tour.');
-            return;
+          alert('You haven’t selected any stops to replace on this tour.');
+          return;
         }
 
         if (!state.activeTour.length || !state.candidatePlaques.length) {
-            alert('There is no active tour to modify yet.');
-            return;
+          alert('There is no active tour to modify yet.');
+          return;
         }
 
         const removedSet = new Set(idsToReplace);
 
         // 1) Keep all non-selected stops
         const kept = state.activeTour.filter(
-            p => !removedSet.has(String(p.id))
+          p => !removedSet.has(String(p.id))
         );
 
         // 2) Build a pool of possible replacements:
@@ -761,51 +763,51 @@ const Api = {
         //    - must NOT be one of the removed ones
         const keptIds = new Set(kept.map(p => String(p.id)));
         const pool = state.candidatePlaques.filter(p => {
-            const id = String(p.id);
-            return !keptIds.has(id) && !removedSet.has(id);
+          const id = String(p.id);
+          return !keptIds.has(id) && !removedSet.has(id);
         });
 
         const desired = state.stops;             // what user asked for via slider
         let needed = desired - kept.length;      // how many new ones we ideally want
 
         if (needed <= 0) {
-            // They’re removing more than or equal to the “desired” count,
-            // so we will inevitably shorten the tour.
-            const shortenOk = confirm(
-                `Removing these stops will shorten your tour from ${desired} to ${kept.length} stops.\n\n` +
-                `Press OK to continue with a shorter tour, or Cancel to go back and adjust your selection.`
-            );
-            if (!shortenOk) return;
+          // They’re removing more than or equal to the “desired” count,
+          // so we will inevitably shorten the tour.
+          const shortenOk = confirm(
+            `Removing these stops will shorten your tour from ${desired} to ${kept.length} stops.\n\n` +
+            `Press OK to continue with a shorter tour, or Cancel to go back and adjust your selection.`
+          );
+          if (!shortenOk) return;
 
-            // No replacements – just keep the remaining ones
-            let newTour = kept;
-            if (state.userLocation && newTour.length > 1) {
-                newTour = Geo.optimizeRoute(state.userLocation, newTour);
-            }
-            state.activeTour = newTour;
-            state.stops = newTour.length;
-            state.planningMarkedForReplace = new Set();
-            app.render();
-            return;
+          // No replacements – just keep the remaining ones
+          let newTour = kept;
+          if (state.userLocation && newTour.length > 1) {
+            newTour = Geo.optimizeRoute(state.userLocation, newTour);
+          }
+          state.activeTour = newTour;
+          state.stops = newTour.length;
+          state.planningMarkedForReplace = new Set();
+          app.render();
+          return;
         }
 
         // Case: enough replacements available
         if (pool.length >= needed) {
-            const replacements = pool
-                .slice()                     // copy
-                .sort(() => 0.5 - Math.random())
-                .slice(0, needed);
+          const replacements = pool
+            .slice()                     // copy
+            .sort(() => 0.5 - Math.random())
+            .slice(0, needed);
 
-            let newTour = [...kept, ...replacements];
-            if (state.userLocation && newTour.length > 1) {
-                newTour = Geo.optimizeRoute(state.userLocation, newTour);
-            }
+          let newTour = [...kept, ...replacements];
+          if (state.userLocation && newTour.length > 1) {
+            newTour = Geo.optimizeRoute(state.userLocation, newTour);
+          }
 
-            state.activeTour = newTour;
-            // tour size stays at the user’s requested value
-            state.planningMarkedForReplace = new Set();
-            app.render();
-            return;
+          state.activeTour = newTour;
+          // tour size stays at the user’s requested value
+          state.planningMarkedForReplace = new Set();
+          app.render();
+          return;
         }
 
         // Case: NOT enough replacements – this is the scenario you described:
@@ -813,517 +815,515 @@ const Api = {
         const canReplace = pool.length;
 
         if (canReplace === 0) {
-            alert(
-                'There are no additional nearby places available to replace the selected stops.\n\n' +
-                'Try reducing the number you want to replace or increasing your radius.'
-            );
-            return;
+          alert(
+            'There are no additional nearby places available to replace the selected stops.\n\n' +
+            'Try reducing the number you want to replace or increasing your radius.'
+          );
+          return;
         }
 
         const newSize = kept.length + canReplace;
         const ok = confirm(
-            `You asked to replace ${idsToReplace.length} stops, ` +
-            `but I can only find ${canReplace} alternative locations nearby.\n\n` +
-            `Press OK to shorten your tour to ${newSize} stops, ` +
-            `or Cancel to go back and adjust which stops you want to replace.`
+          `You asked to replace ${idsToReplace.length} stops, ` +
+          `but I can only find ${canReplace} alternative locations nearby.\n\n` +
+          `Press OK to shorten your tour to ${newSize} stops, ` +
+          `or Cancel to go back and adjust which stops you want to replace.`
         );
 
         if (!ok) return;
 
         const replacements = pool
-            .slice()
-            .sort(() => 0.5 - Math.random())
-            .slice(0, canReplace);
+          .slice()
+          .sort(() => 0.5 - Math.random())
+          .slice(0, canReplace);
 
         let newTour = [...kept, ...replacements];
         if (state.userLocation && newTour.length > 1) {
-            newTour = Geo.optimizeRoute(state.userLocation, newTour);
+          newTour = Geo.optimizeRoute(state.userLocation, newTour);
         }
 
         state.activeTour = newTour;
         state.stops = newTour.length;       // update slider to the new reality
         state.planningMarkedForReplace = new Set();
         app.render();
-    },
+      },
 
-            // ------------------
-            // AUDIO LOGIC
-            // ------------------
-            speak: (plaqueId) => {
-                const plaque = state.activeTour.find(p => p.id === plaqueId);
-                if (!plaque) return;
+      // ------------------
+      // AUDIO LOGIC
+      // ------------------
+      speak: (plaqueId) => {
+        const plaque = state.activeTour.find(p => p.id === plaqueId);
+        if (!plaque) return;
 
-                if (!('speechSynthesis' in window)) {
-                    alert('Spoken audio is not supported on this device/browser.');
-                    return;
-                }
+        if (!('speechSynthesis' in window)) {
+          alert('Spoken audio is not supported on this device/browser.');
+          return;
+        }
 
-                // Stop anything currently speaking first
-                window.speechSynthesis.cancel();
+        // Stop anything currently speaking first
+        window.speechSynthesis.cancel();
 
-                const baseText = `${plaque.title}. ${plaque.bio || plaque.summary || ''}`;
-                const text = baseText.trim();
-                if (!text) {
-                    alert('No description available to read for this place of interest.');
-                    return;
-                }
+        const baseText = `${plaque.title}. ${plaque.bio || plaque.summary || ''}`;
+        const text = baseText.trim();
+        if (!text) {
+          alert('No description available to read for this place of interest.');
+          return;
+        }
 
-                const utterance = new SpeechSynthesisUtterance(text);
+        const utterance = new SpeechSynthesisUtterance(text);
 
-                // Prefer our chosen English female / UK voice if available
-                if (preferredVoice) {
-                    utterance.voice = preferredVoice;
-                    utterance.lang = preferredVoice.lang || 'en-GB';
-                } else {
-                    utterance.lang = 'en-GB';
-                }
+        // Prefer our chosen English female / UK voice if available
+        if (preferredVoice) {
+          utterance.voice = preferredVoice;
+          utterance.lang = preferredVoice.lang || 'en-GB';
+        } else {
+          utterance.lang = 'en-GB';
+        }
 
-// Slightly slower / warmer delivery
-                    utterance.rate = 0.95;
-                    utterance.pitch = 1.0;
-                    utterance.volume = 1.0;
-                    utterance.onstart = () => {
-                      state.currentSpeechPlaqueId = plaqueId;
-                      state.isSpeechPlaying = true;
-                      state.isSpeechPaused = false;
-                    app.render();
-                };
+        // Slightly slower / warmer delivery
+        utterance.rate = 0.95;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+        utterance.onstart = () => {
+          state.currentSpeechPlaqueId = plaqueId;
+          state.isSpeechPlaying = true;
+          state.isSpeechPaused = false;
+          app.render();
+        };
 
-                utterance.onend = () => {
-                    state.isSpeechPlaying = false;
-                    state.isSpeechPaused = false;
-                    state.currentSpeechPlaqueId = null;
-                    app.render();
-                };
+        utterance.onend = () => {
+          state.isSpeechPlaying = false;
+          state.isSpeechPaused = false;
+          state.currentSpeechPlaqueId = null;
+          app.render();
+        };
 
-                utterance.onerror = (e) => {
-                    console.error('Speech error', e);
-                    state.isSpeechPlaying = false;
-                    state.isSpeechPaused = false;
-                    state.currentSpeechPlaqueId = null;
-                    app.render();
-                };
+        utterance.onerror = (e) => {
+          console.error('Speech error', e);
+          state.isSpeechPlaying = false;
+          state.isSpeechPaused = false;
+          state.currentSpeechPlaqueId = null;
+          app.render();
+        };
 
-                window.speechSynthesis.speak(utterance);
-            },
+        window.speechSynthesis.speak(utterance);
+      },
 
-            pauseSpeech: () => {
-                if (!('speechSynthesis' in window)) return;
-                window.speechSynthesis.pause();
-                state.isSpeechPlaying = false;
-                state.isSpeechPaused = true;
-                app.render();
-            },
+      pauseSpeech: () => {
+        if (!('speechSynthesis' in window)) return;
+        window.speechSynthesis.pause();
+        state.isSpeechPlaying = false;
+        state.isSpeechPaused = true;
+        app.render();
+      },
 
-            resumeSpeech: () => {
-                if (!('speechSynthesis' in window)) return;
-                window.speechSynthesis.resume();
-                state.isSpeechPlaying = true;
-                state.isSpeechPaused = false;
-                app.render();
-            },
+      resumeSpeech: () => {
+        if (!('speechSynthesis' in window)) return;
+        window.speechSynthesis.resume();
+        state.isSpeechPlaying = true;
+        state.isSpeechPaused = false;
+        app.render();
+      },
 
-            stopSpeech: () => {
-                if (!('speechSynthesis' in window)) return;
-                window.speechSynthesis.cancel();
-                state.isSpeechPlaying = false;
-                state.isSpeechPaused = false;
-                state.currentSpeechPlaqueId = null;
-                app.render();
-            },
+      stopSpeech: () => {
+        if (!('speechSynthesis' in window)) return;
+        window.speechSynthesis.cancel();
+        state.isSpeechPlaying = false;
+        state.isSpeechPaused = false;
+        state.currentSpeechPlaqueId = null;
+        app.render();
+      },
 
-            toggleAutoPlay: () => {
-                state.isAutoPlay = !state.isAutoPlay;
-                if (state.isAutoPlay) app.startAudioWatch();
-                else app.stopAudioWatch();
-                app.render();
-            },
+      toggleAutoPlay: () => {
+        state.isAutoPlay = !state.isAutoPlay;
+        if (state.isAutoPlay) app.startAudioWatch();
+        else app.stopAudioWatch();
+        app.render();
+      },
 
-            startAudioWatch: () => {
-                if (!navigator.geolocation) return;
-                app.stopAudioWatch();
-                state.watchId = navigator.geolocation.watchPosition(pos => {
-                    const uLat = pos.coords.latitude;
-                    const uLng = pos.coords.longitude;
-                    state.activeTour.forEach(p => {
-                        if (state.playedPlaques.has(p.id)) return;
-                        const dist = Geo.calculateDistance(uLat, uLng, p.latitude, p.longitude);
-                        if (dist <= AUDIO_TRIGGER_DISTANCE) {
-                            state.playedPlaques.add(p.id);
-                            app.speak(p.id);
-                        }
-                    });
-                }, err => console.error(err), { enableHighAccuracy: true });
-            },
+      startAudioWatch: () => {
+        if (!navigator.geolocation) return;
+        app.stopAudioWatch();
+        state.watchId = navigator.geolocation.watchPosition(pos => {
+          const uLat = pos.coords.latitude;
+          const uLng = pos.coords.longitude;
+          state.activeTour.forEach(p => {
+            if (state.playedPlaques.has(p.id)) return;
+            const dist = Geo.calculateDistance(uLat, uLng, p.latitude, p.longitude);
+            if (dist <= AUDIO_TRIGGER_DISTANCE) {
+              state.playedPlaques.add(p.id);
+              app.speak(p.id);
+            }
+          });
+        }, err => console.error(err), { enableHighAccuracy: true });
+      },
 
-            stopAudioWatch: () => {
-                if (state.watchId !== null) {
-                    navigator.geolocation.clearWatch(state.watchId);
-                    state.watchId = null;
-                }
-            },
+      stopAudioWatch: () => {
+        if (state.watchId !== null) {
+          navigator.geolocation.clearWatch(state.watchId);
+          state.watchId = null;
+        }
+      },
 
-            // Logic: Load Collections (and feed autocomplete)
-loadCategories: async () => {
-    const cityCfg = CITIES[state.cityIndex]; // still just the Collections.json entry
+      // Logic: Load Collections (and feed autocomplete)
+      loadCategories: async () => {
+        const cityCfg = CITIES[state.cityIndex]; // still just the Collections.json entry
 
-    try {
-        const plaques = await Api.fetchPlaques(cityCfg.url);
-        state.allPlaques = plaques;
+        try {
+          const plaques = await Api.fetchPlaques(cityCfg.url);
+          state.allPlaques = plaques;
 
-        // 1) Build city list from `area`
-        const citySet = new Set(
+          // 1) Build city list from `area`
+          const citySet = new Set(
             plaques
-                .map(p => p.area)
-                .filter(a => a && a.trim())
-        );
-        state.availableCities = Array.from(citySet).sort();
+              .map(p => p.area)
+              .filter(a => a && a.trim())
+          );
+          state.availableCities = Array.from(citySet).sort();
 
-        // Default city if none chosen yet
-        if (!state.selectedCity && state.availableCities.length) {
+          // Default city if none chosen yet
+          if (!state.selectedCity && state.availableCities.length) {
             state.selectedCity = state.availableCities[0];
-        }
+          }
 
-        // 2) Build collections list for the selected city
-        const collectionsSet = new Set(
+          // 2) Build collections list for the selected city
+          const collectionsSet = new Set(
             plaques
-                .filter(p => !state.selectedCity || p.area === state.selectedCity)
-                .map(p => p.category)
-                .filter(c => c && c.trim())
-        );
-        state.availableCollections = Array.from(collectionsSet).sort();
+              .filter(p => !state.selectedCity || p.area === state.selectedCity)
+              .map(p => p.category)
+              .filter(c => c && c.trim())
+          );
+          state.availableCollections = Array.from(collectionsSet).sort();
 
-        // Default collection if none chosen yet
-        if (!state.collection && state.availableCollections.length) {
+          // Default collection if none chosen yet
+          if (!state.collection && state.availableCollections.length) {
             state.collection = state.availableCollections[0];
+          }
+
+          if (state.view === 'HOME') app.render();
+        } catch (e) {
+          console.error(e);
+        }
+      },
+
+      generateTour: async (e) => {
+        if (e) e.preventDefault();
+        state.loading = true;
+        state.error = null;
+        app.render();
+
+        const cityCfg = CITIES[state.cityIndex];
+
+        try {
+          // 1. Base plaque set: city + collection
+          const all = state.allPlaques && state.allPlaques.length
+            ? state.allPlaques
+            : await Api.fetchPlaques(cityCfg.url);
+
+          let filtered = all;
+
+          // City filter
+          if (state.selectedCity) {
+            const cityName = state.selectedCity.toLowerCase();
+            filtered = filtered.filter(p =>
+              p.area && p.area.toLowerCase() === cityName
+            );
+          }
+
+          // Collection filter
+          if (state.collection) {
+            const col = state.collection.toLowerCase();
+            filtered = filtered.filter(p =>
+              p.category && p.category.toLowerCase() === col
+            );
+          }
+
+          if (!filtered.length) {
+            throw new Error('No places of interest found for this city / collection.');
+          }
+
+          let startLoc;
+          let nearby = [];
+
+          if (state.locationMethod === 'GPS') {
+            // START NOW: centre on the user and keep within radius
+            startLoc = await Geo.getCurrentPosition();
+            state.userLocation = startLoc;
+
+            nearby = filtered.filter(p => {
+              const hasCoords =
+                Number.isFinite(p.latitude) && Number.isFinite(p.longitude);
+              if (!hasCoords) return false;
+              const dist = Geo.calculateDistance(
+                startLoc.latitude,
+                startLoc.longitude,
+                p.latitude,
+                p.longitude
+              );
+              return dist <= state.radius;
+            });
+
+            state.isPlanned = false;
+          } else {
+            // PLAN FOR LATER: find best cluster anywhere in the city
+            const { center, members } = Geo.findBestCluster(filtered, state.radius);
+
+            if (!center || !members.length) {
+              throw new Error(
+                `No suitable cluster found within ${state.radius} miles for this collection.`
+              );
+            }
+
+            startLoc = center;
+            state.userLocation = startLoc;
+            nearby = members;
+            state.isPlanned = true;
+          }
+
+          if (!nearby.length) {
+            throw new Error(`No places of interest found within ${state.radius} miles.`);
+          }
+
+          // 2. Select & optimise tour
+          const shuffled = [...nearby].sort(() => 0.5 - Math.random());
+          let selected = shuffled.slice(0, state.stops);
+          selected = Geo.optimizeRoute(startLoc, selected);
+
+          // 3. Update state for this tour
+          state.candidatePlaques = nearby;
+          state.activeTour = selected;
+          state.selectedForRemoval = new Set();
+          state.playedPlaques = new Set();
+          state.activeTourMeta = {
+            id: null,
+            isPaid: false,
+          };
+
+          // NEW: clear any planning-stage replace flags
+          state.planningMarkedForReplace = new Set();
+
+          // 4. Compute a friendly startHint
+          if (state.isPlanned) {
+            try {
+              const suggestedAddress = await Api.reverseGeocode(startLoc);
+              state.startHint = suggestedAddress;
+            } catch (err) {
+              console.warn('Reverse geocoding failed, falling back', err);
+              state.startHint = cityCfg.exampleAddress || state.selectedCity || '';
+            }
+          } else {
+            state.startHint = 'Your current location';
+          }
+
+          // 5. Compute tour stats & price for the preview
+          const stats = Geo.computeTourStats(startLoc, selected);
+          state.tourDistanceMiles = stats.distanceMiles;
+          state.tourWalkMinutes = stats.walkingMinutes;
+
+          const dwellMinutes = state.activeTour.length * 5;
+          state.tourTotalMinutes = Math.round(stats.walkingMinutes + dwellMinutes);
+
+          const rawPrice = PRICE_BASE + PRICE_PER_STOP * state.activeTour.length;
+          state.tourPrice = Math.round(rawPrice * 100) / 100;
+
+          // 6. Show preview/paywall
+          state.view = 'PREVIEW';
+        } catch (err) {
+          state.error = err.message || 'Error generating tour';
+        } finally {
+          state.loading = false;
+          app.render();
+        }
+      },
+
+      // Logic: Regenerate (Swap)
+      toggleRemove: (id, checked) => {
+        // Once a tour is paid, do not allow editing
+        if (state.activeTourMeta && state.activeTourMeta.isPaid) return;
+
+        if (checked) state.selectedForRemoval.add(id);
+        else state.selectedForRemoval.delete(id);
+
+        // Update checkbox visually without full re-render for speed
+        const el = document.getElementById(`lbl-${id}`);
+        if (el) {
+          el.className = `text-xs font-bold uppercase ${checked ? 'text-red-600' : 'text-gray-400 group-hover:text-gray-600'
+            }`;
+        }
+        const txt = document.getElementById(`txt-${id}`);
+        if (txt) txt.innerText = checked ? 'Remove' : 'Keep';
+        const card = document.getElementById(`card-${id}`);
+        if (card) {
+          card.className =
+            `bg-white rounded-xl shadow-md overflow-hidden border-l-4 mb-4 ` +
+            `relative group transition-all ${checked ? 'border-red-500 bg-red-50' : 'border-plaque-blue'
+            }`;
         }
 
-        if (state.view === 'HOME') app.render();
-    } catch (e) {
-        console.error(e);
-    }
-},
+        app.updateActionBar();
+      },
+      regenerateSelected: () => {
+        // No regenerating on paid tours
+        if (state.activeTourMeta && state.activeTourMeta.isPaid) return;
 
-generateTour: async (e) => {
-  if (e) e.preventDefault();
-  state.loading = true;
-  state.error = null;
-  app.render();
+        const idsToRemove = Array.from(state.selectedForRemoval).map(String);
+        if (!idsToRemove.length) return;
 
-  const cityCfg = CITIES[state.cityIndex];
+        const removedSet = new Set(idsToRemove);
+        const kept = state.activeTour.filter(p => !removedSet.has(String(p.id)));
 
-  try {
-    // 1. Base plaque set: city + collection
-    const all = state.allPlaques && state.allPlaques.length
-      ? state.allPlaques
-      : await Api.fetchPlaques(cityCfg.url);
-
-    let filtered = all;
-
-    // City filter
-    if (state.selectedCity) {
-      const cityName = state.selectedCity.toLowerCase();
-      filtered = filtered.filter(p =>
-        p.area && p.area.toLowerCase() === cityName
-      );
-    }
-
-    // Collection filter
-    if (state.collection) {
-      const col = state.collection.toLowerCase();
-      filtered = filtered.filter(p =>
-        p.category && p.category.toLowerCase() === col
-      );
-    }
-
-    if (!filtered.length) {
-      throw new Error('No places of interest found for this city / collection.');
-    }
-
-    let startLoc;
-    let nearby = [];
-
-    if (state.locationMethod === 'GPS') {
-      // START NOW: centre on the user and keep within radius
-      startLoc = await Geo.getCurrentPosition();
-      state.userLocation = startLoc;
-
-      nearby = filtered.filter(p => {
-        const hasCoords =
-          Number.isFinite(p.latitude) && Number.isFinite(p.longitude);
-        if (!hasCoords) return false;
-        const dist = Geo.calculateDistance(
-          startLoc.latitude,
-          startLoc.longitude,
-          p.latitude,
-          p.longitude
+        const keptIds = new Set(kept.map(p => String(p.id)));
+        const pool = state.candidatePlaques.filter(
+          p => !keptIds.has(String(p.id)) && !removedSet.has(String(p.id))
         );
-        return dist <= state.radius;
-      });
 
-      state.isPlanned = false;
-    } else {
-      // PLAN FOR LATER: find best cluster anywhere in the city
-      const { center, members } = Geo.findBestCluster(filtered, state.radius);
+        const needed = state.stops - kept.length;
 
-      if (!center || !members.length) {
-        throw new Error(
-          `No suitable cluster found within ${state.radius} miles for this collection.`
-        );
-      }
-
-      startLoc = center;
-      state.userLocation = startLoc;
-      nearby = members;
-      state.isPlanned = true;
-    }
-
-    if (!nearby.length) {
-      throw new Error(`No places of interest found within ${state.radius} miles.`);
-    }
-
-    // 2. Select & optimise tour
-    const shuffled = [...nearby].sort(() => 0.5 - Math.random());
-    let selected = shuffled.slice(0, state.stops);
-    selected = Geo.optimizeRoute(startLoc, selected);
-
-    // 3. Update state for this tour
-    state.candidatePlaques = nearby;
-    state.activeTour = selected;
-    state.selectedForRemoval = new Set();
-    state.playedPlaques = new Set();
-    state.activeTourMeta = {
-      id: null,
-      isPaid: false,
-    };
-
-    // NEW: clear any planning-stage replace flags
-    state.planningMarkedForReplace = new Set();
-
-    // 4. Compute a friendly startHint
-    if (state.isPlanned) {
-      try {
-        const suggestedAddress = await Api.reverseGeocode(startLoc);
-        state.startHint = suggestedAddress;
-      } catch (err) {
-        console.warn('Reverse geocoding failed, falling back', err);
-        state.startHint = cityCfg.exampleAddress || state.selectedCity || '';
-      }
-    } else {
-      state.startHint = 'Your current location';
-    }
-
-    // 5. Compute tour stats & price for the preview
-    const stats = Geo.computeTourStats(startLoc, selected);
-    state.tourDistanceMiles = stats.distanceMiles;
-    state.tourWalkMinutes = stats.walkingMinutes;
-
-    const dwellMinutes = state.activeTour.length * 5;
-    state.tourTotalMinutes = Math.round(stats.walkingMinutes + dwellMinutes);
-
-    const rawPrice = PRICE_BASE + PRICE_PER_STOP * state.activeTour.length;
-    state.tourPrice = Math.round(rawPrice * 100) / 100;
-
-    // 6. Show preview/paywall
-    state.view = 'PREVIEW';
-  } catch (err) {
-    state.error = err.message || 'Error generating tour';
-  } finally {
-    state.loading = false;
-    app.render();
-  }
-},
-
-// Logic: Regenerate (Swap)
-toggleRemove: (id, checked) => {
-    // Once a tour is paid, do not allow editing
-    if (state.activeTourMeta && state.activeTourMeta.isPaid) return;
-
-    if (checked) state.selectedForRemoval.add(id);
-    else state.selectedForRemoval.delete(id);
-
-    // Update checkbox visually without full re-render for speed
-    const el = document.getElementById(`lbl-${id}`);
-    if (el) {
-        el.className = `text-xs font-bold uppercase ${
-            checked ? 'text-red-600' : 'text-gray-400 group-hover:text-gray-600'
-        }`;
-    }
-    const txt = document.getElementById(`txt-${id}`);
-    if (txt) txt.innerText = checked ? 'Remove' : 'Keep';
-    const card = document.getElementById(`card-${id}`);
-    if (card) {
-        card.className =
-            `bg-white rounded-xl shadow-md overflow-hidden border-l-4 mb-4 ` +
-            `relative group transition-all ${
-                checked ? 'border-red-500 bg-red-50' : 'border-plaque-blue'
-            }`;
-    }
-
-    app.updateActionBar();
-},
-regenerateSelected: () => {
-    // No regenerating on paid tours
-    if (state.activeTourMeta && state.activeTourMeta.isPaid) return;
-
-    const idsToRemove = Array.from(state.selectedForRemoval).map(String);
-    if (!idsToRemove.length) return;
-
-    const removedSet = new Set(idsToRemove);
-    const kept = state.activeTour.filter(p => !removedSet.has(String(p.id)));
-
-    const keptIds = new Set(kept.map(p => String(p.id)));
-    const pool = state.candidatePlaques.filter(
-        p => !keptIds.has(String(p.id)) && !removedSet.has(String(p.id))
-    );
-
-    const needed = state.stops - kept.length;
-
-    if (needed > 0 && pool.length < needed) {
-        alert(
+        if (needed > 0 && pool.length < needed) {
+          alert(
             'Not enough alternative locations nearby to replace all selected places of interest. ' +
             'Try reducing the number selected or increasing your radius.'
-        );
-        return;
-    }
+          );
+          return;
+        }
 
-    const replacements = pool.sort(() => 0.5 - Math.random()).slice(0, needed);
-    let newTour = [...kept, ...replacements];
+        const replacements = pool.sort(() => 0.5 - Math.random()).slice(0, needed);
+        let newTour = [...kept, ...replacements];
 
-    if (state.userLocation) {
-        newTour = Geo.optimizeRoute(state.userLocation, newTour);
-    }
+        if (state.userLocation) {
+          newTour = Geo.optimizeRoute(state.userLocation, newTour);
+        }
 
-    state.activeTour = newTour;
-    state.selectedForRemoval = new Set();
-    app.render();
-},
-removeSelectedNoReplacement: () => {
-    // No removing stops on paid tours
-    if (state.activeTourMeta && state.activeTourMeta.isPaid) return;
+        state.activeTour = newTour;
+        state.selectedForRemoval = new Set();
+        app.render();
+      },
+      removeSelectedNoReplacement: () => {
+        // No removing stops on paid tours
+        if (state.activeTourMeta && state.activeTourMeta.isPaid) return;
 
-    const idsToRemove = Array.from(state.selectedForRemoval).map(String);
-    if (!idsToRemove.length) return;
+        const idsToRemove = Array.from(state.selectedForRemoval).map(String);
+        if (!idsToRemove.length) return;
 
-    const removedSet = new Set(idsToRemove);
-    let newTour = state.activeTour.filter(p => !removedSet.has(String(p.id)));
+        const removedSet = new Set(idsToRemove);
+        let newTour = state.activeTour.filter(p => !removedSet.has(String(p.id)));
 
-    state.stops = newTour.length;
+        state.stops = newTour.length;
 
-    if (state.userLocation && newTour.length > 1) {
-        newTour = Geo.optimizeRoute(state.userLocation, newTour);
-    }
+        if (state.userLocation && newTour.length > 1) {
+          newTour = Geo.optimizeRoute(state.userLocation, newTour);
+        }
 
-    state.activeTour = newTour;
-    state.selectedForRemoval = new Set();
-    app.render();
-},
+        state.activeTour = newTour;
+        state.selectedForRemoval = new Set();
+        app.render();
+      },
 
-            // Logic: Favorites
-saveTour: () => {
-  if (!state.activeTour.length) return;
+      // Logic: Favorites
+      saveTour: () => {
+        if (!state.activeTour.length) return;
 
-  const cityName =
-    state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
+        const cityName =
+          state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
 
-  const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
 
-  let id = state.activeTourMeta && state.activeTourMeta.id;
-  const isPaid = !!(state.activeTourMeta && state.activeTourMeta.isPaid);
+        let id = state.activeTourMeta && state.activeTourMeta.id;
+        const isPaid = !!(state.activeTourMeta && state.activeTourMeta.isPaid);
 
-  // If this tour hasn’t been saved before, create a new id
-  if (!id) {
-    id = Date.now().toString();
-  }
+        // If this tour hasn’t been saved before, create a new id
+        if (!id) {
+          id = Date.now().toString();
+        }
 
-  const defaultName = state.isPlanned
-    ? `${cityName} – ${state.startHint || 'planned walk'}`
-    : `${cityName} walk`;
+        const defaultName = state.isPlanned
+          ? `${cityName} – ${state.startHint || 'planned walk'}`
+          : `${cityName} walk`;
 
-  const name = (prompt('Give this tour a name:', defaultName) || defaultName).trim();
+        const name = (prompt('Give this tour a name:', defaultName) || defaultName).trim();
 
-  const tourData = {
-    id,
-    name,
-    date: new Date().toISOString(),
-    cityName,
-    plaques: state.activeTour,
-    isPlanned: state.isPlanned,
-    startHint: state.startHint,
-    distanceMiles: state.tourDistanceMiles,
-    walkMinutes: state.tourWalkMinutes,
-    totalMinutes: state.tourTotalMinutes,
-    price: state.tourPrice,
-    isPaid,
-  };
+        const tourData = {
+          id,
+          name,
+          date: new Date().toISOString(),
+          cityName,
+          plaques: state.activeTour,
+          isPlanned: state.isPlanned,
+          startHint: state.startHint,
+          distanceMiles: state.tourDistanceMiles,
+          walkMinutes: state.tourWalkMinutes,
+          totalMinutes: state.tourTotalMinutes,
+          price: state.tourPrice,
+          isPaid,
+        };
 
-  const idx = existing.findIndex((t) => t.id === id);
-  if (idx === -1) {
-    existing.unshift(tourData);
-  } else {
-    existing[idx] = tourData;
-  }
+        const idx = existing.findIndex((t) => t.id === id);
+        if (idx === -1) {
+          existing.unshift(tourData);
+        } else {
+          existing[idx] = tourData;
+        }
 
-  state.activeTourMeta = { id, isPaid };
+        state.activeTourMeta = { id, isPaid };
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
-  alert('Tour saved!');
-},
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
+        alert('Tour saved!');
+      },
 
-loadTour: (id) => {
-  const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-  const tour = existing.find((t) => t.id === id);
-  if (!tour) return;
+      loadTour: (id) => {
+        const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        const tour = existing.find((t) => t.id === id);
+        if (!tour) return;
 
-  state.activeTour = tour.plaques || [];
-  state.candidatePlaques = []; // can’t regenerate well from saved
-  state.stops = tour.plaques ? tour.plaques.length : 0;
+        state.activeTour = tour.plaques || [];
+        state.candidatePlaques = []; // can’t regenerate well from saved
+        state.stops = tour.plaques ? tour.plaques.length : 0;
 
-  state.isPlanned = !!tour.isPlanned;
-  state.startHint = tour.startHint || '';
-  state.selectedCity = tour.cityName || state.selectedCity;
+        state.isPlanned = !!tour.isPlanned;
+        state.startHint = tour.startHint || '';
+        state.selectedCity = tour.cityName || state.selectedCity;
 
-  state.tourDistanceMiles = tour.distanceMiles || 0;
-  state.tourWalkMinutes = tour.walkMinutes || 0;
-  state.tourTotalMinutes = tour.totalMinutes || 0;
-  state.tourPrice = tour.price || 0;
+        state.tourDistanceMiles = tour.distanceMiles || 0;
+        state.tourWalkMinutes = tour.walkMinutes || 0;
+        state.tourTotalMinutes = tour.totalMinutes || 0;
+        state.tourPrice = tour.price || 0;
 
-  state.activeTourMeta = {
-    id: tour.id,
-    isPaid: !!tour.isPaid,
-  };
+        state.activeTourMeta = {
+          id: tour.id,
+          isPaid: !!tour.isPaid,
+        };
 
-  // IMPORTANT: Only jump straight into the full tour if it’s paid
-  state.view = tour.isPaid ? 'TOUR' : 'PREVIEW';
+        // IMPORTANT: Only jump straight into the full tour if it’s paid
+        state.view = tour.isPaid ? 'TOUR' : 'PREVIEW';
 
-  app.render();
-},
-            deleteTour: (id, e) => {
-                e.stopPropagation();
-                const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-                const updated = existing.filter(t => t.id !== id);
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-                app.render();
-            },
+        app.render();
+      },
+      deleteTour: (id, e) => {
+        e.stopPropagation();
+        const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        const updated = existing.filter(t => t.id !== id);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+        app.render();
+      },
 
-            // --- Render Functions ---
+      // --- Render Functions ---
 
-updateActionBar: () => {
-    const bar = document.getElementById('action-bar');
-    if (!bar) return;
+      updateActionBar: () => {
+        const bar = document.getElementById('action-bar');
+        if (!bar) return;
 
-    const isPaidTour = !!(state.activeTourMeta && state.activeTourMeta.isPaid);
-    const isManualPlanningContext =
-        state.view === 'TOUR' && state.locationMethod === 'MANUAL';
+        const isPaidTour = !!(state.activeTourMeta && state.activeTourMeta.isPaid);
+        const isManualPlanningContext =
+          state.view === 'TOUR' && state.locationMethod === 'MANUAL';
 
-    // Common map URLs
-    const navUrl = Geo.generateMapsNavUrl(state.activeTour);
-    const previewUrl = isManualPlanningContext
-        ? Geo.generateMapsPreviewUrl(state.activeTour)
-        : null;
+        // Common map URLs
+        const navUrl = Geo.generateMapsNavUrl(state.activeTour);
+        const previewUrl = isManualPlanningContext
+          ? Geo.generateMapsPreviewUrl(state.activeTour)
+          : null;
 
-    const previewButtonHtml = previewUrl
-        ? `
+        const previewButtonHtml = previewUrl
+          ? `
             <a
               href="${previewUrl}"
               target="_blank"
@@ -1334,12 +1334,12 @@ updateActionBar: () => {
               ${Icons.MapPin} Preview route near planned start
             </a>
           `
-        : '';
+          : '';
 
-    // If the tour is paid, **no regenerate / remove controls**, just navigation + save
-    if (isPaidTour) {
-        state.selectedForRemoval = new Set(); // clear any stale selection
-        bar.innerHTML = `
+        // If the tour is paid, **no regenerate / remove controls**, just navigation + save
+        if (isPaidTour) {
+          state.selectedForRemoval = new Set(); // clear any stale selection
+          bar.innerHTML = `
             <div class="max-w-md mx-auto w-full space-y-2">
                 <a
                   href="${navUrl}"
@@ -1361,15 +1361,15 @@ updateActionBar: () => {
                 </button>
             </div>
         `;
-        return;
-    }
+          return;
+        }
 
-    const count = state.selectedForRemoval.size;
-    const canSwap = state.candidatePlaques.length > state.activeTour.length;
+        const count = state.selectedForRemoval.size;
+        const canSwap = state.candidatePlaques.length > state.activeTour.length;
 
-    if (count > 0) {
-        // Some cards are selected → show regenerate / remove controls
-        bar.innerHTML = `
+        if (count > 0) {
+          // Some cards are selected → show regenerate / remove controls
+          bar.innerHTML = `
             <div class="max-w-md mx-auto w-full space-y-2">
                 <button
                     onclick="app.regenerateSelected()"
@@ -1387,14 +1387,14 @@ updateActionBar: () => {
                 </button>
             </div>
         `;
-    } else {
-        // No cards selected – map + save controls
-        const navUrl = Geo.generateMapsNavUrl(state.activeTour);
-        const previewUrl = isManualPlanningContext
+        } else {
+          // No cards selected – map + save controls
+          const navUrl = Geo.generateMapsNavUrl(state.activeTour);
+          const previewUrl = isManualPlanningContext
             ? Geo.generateMapsPreviewUrl(state.activeTour)
             : null;
 
-        const previewButtonHtml = previewUrl
+          const previewButtonHtml = previewUrl
             ? `
                 <a
                     href="${previewUrl}"
@@ -1406,7 +1406,7 @@ updateActionBar: () => {
             `
             : '';
 
-        bar.innerHTML = `
+          bar.innerHTML = `
             <div class="max-w-md mx-auto w-full space-y-2">
                 <a
                     href="${navUrl}"
@@ -1424,14 +1424,14 @@ updateActionBar: () => {
                 </button>
             </div>
         `;
-    }
-},
+        }
+      },
 
-            render: () => {
-    const root = document.getElementById('app');
-    let html = '';
-    if (state.error) {
-        html += `
+      render: () => {
+        const root = document.getElementById('app');
+        let html = '';
+        if (state.error) {
+          html += `
         <div class="mb-6 mt-4 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
             <div class="flex">
                 <div class="ml-3">
@@ -1439,48 +1439,48 @@ updateActionBar: () => {
                 </div>
             </div>
         </div>`;
-    }
+        }
 
-    if (state.view === 'HOME') {
-  html += app.renderHome();
-    } else if (state.view === 'PREVIEW') {
-  html += app.renderPreview();
-    } else if (state.view === 'TOUR') {
-  html += app.renderTour();
-    } else if (state.view === 'FAVORITES') {
-  html += app.renderFavorites();
-    } else if (state.view === 'GUIDE') {
-  html += app.renderGuide();
-    } else if (state.view === 'COLOURS') {
-  html += app.renderColours();
-    }
+        if (state.view === 'HOME') {
+          html += app.renderHome();
+        } else if (state.view === 'PREVIEW') {
+          html += app.renderPreview();
+        } else if (state.view === 'TOUR') {
+          html += app.renderTour();
+        } else if (state.view === 'FAVORITES') {
+          html += app.renderFavorites();
+        } else if (state.view === 'GUIDE') {
+          html += app.renderGuide();
+        } else if (state.view === 'COLOURS') {
+          html += app.renderColours();
+        }
 
         root.innerHTML = html;
 
-    if (state.view === 'TOUR') {
-        // Ensure Maps + Save action bar is rendered
-        app.updateActionBar();
-    }
+        if (state.view === 'TOUR') {
+          // Ensure Maps + Save action bar is rendered
+          app.updateActionBar();
+        }
 
-    // Always refresh bottom navigation
-    app.renderNav();
-},
+        // Always refresh bottom navigation
+        app.renderNav();
+      },
 
-            renderNav: () => {
-                const nav = document.getElementById('bottom-nav');
-                if (!nav) return;
+      renderNav: () => {
+        const nav = document.getElementById('bottom-nav');
+        if (!nav) return;
 
-                // Treat TOUR as part of the "New tour" tab for highlighting
-                const logicalView =
-                    state.view === 'TOUR' ? 'HOME' : state.view;
+        // Treat TOUR as part of the "New tour" tab for highlighting
+        const logicalView =
+          state.view === 'TOUR' ? 'HOME' : state.view;
 
-                const tabClass = (view) =>
-                    'flex flex-col items-center flex-1 py-2 text-xs font-medium transition-colors ' +
-                    (logicalView === view
-                        ? 'text-plaque-blue'
-                        : 'text-gray-400');
+        const tabClass = (view) =>
+          'flex flex-col items-center flex-1 py-2 text-xs font-medium transition-colors ' +
+          (logicalView === view
+            ? 'text-plaque-blue'
+            : 'text-gray-400');
 
-                nav.innerHTML = `
+        nav.innerHTML = `
                     <div class="max-w-2xl mx-auto px-4">
                         <div class="flex justify-between items-center">
                             <button onclick="app.setView('HOME')" class="${tabClass('HOME')}">
@@ -1502,10 +1502,10 @@ updateActionBar: () => {
                         </div>
                     </div>
                 `;
-            },
-    
-            renderHome: () => {
-    return `
+      },
+
+      renderHome: () => {
+        return `
     <div class="w-full max-w-md mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 mt-0">
         <form onsubmit="app.generateTour(event)" class="p-6 space-y-6">
             <!-- 1. City -->
@@ -1515,13 +1515,12 @@ updateActionBar: () => {
                  onchange="app.setCityFilter(this.value)"
                  class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plaque-blue bg-white"
               >
-                  ${
-                    state.availableCities.length
-                      ? state.availableCities
-                          .map(city => `<option value="${city}" ${city === state.selectedCity ? 'selected' : ''}>${city}</option>`)
-                          .join('')
-                      : '<option disabled>Loading cities…</option>'
-                  }
+                  ${state.availableCities.length
+            ? state.availableCities
+              .map(city => `<option value="${city}" ${city === state.selectedCity ? 'selected' : ''}>${city}</option>`)
+              .join('')
+            : '<option disabled>Loading cities…</option>'
+          }
               </select>
             </div>
 
@@ -1534,13 +1533,12 @@ updateActionBar: () => {
                     onchange="app.setCollection(this.value)"
                     class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plaque-blue bg-white"
                 >
-                    ${
-                      state.availableCollections.length
-                        ? state.availableCollections
-                            .map(c => `<option value="${c}" ${c === state.collection ? 'selected' : ''}>${c}</option>`)
-                            .join('')
-                        : '<option disabled>Select a city first…</option>'
-                    }
+                    ${state.availableCollections.length
+            ? state.availableCollections
+              .map(c => `<option value="${c}" ${c === state.collection ? 'selected' : ''}>${c}</option>`)
+              .join('')
+            : '<option disabled>Select a city first…</option>'
+          }
                 </select>
             </div>
 
@@ -1553,11 +1551,10 @@ updateActionBar: () => {
         <button
             type="button"
             onclick="app.setMethod('GPS')"
-            class="flex-1 py-2 px-3 text-xs font-medium rounded-2xl transition-all shadow-sm ${
-                state.locationMethod === 'GPS'
-                    ? 'bg-plaque-blue text-white'
-                    : 'bg-red-600 text-white'
-            }"
+            class="flex-1 py-2 px-3 text-xs font-medium rounded-2xl transition-all shadow-sm ${state.locationMethod === 'GPS'
+            ? 'bg-plaque-blue text-white'
+            : 'bg-red-600 text-white'
+          }"
         >
             <span class="block text-sm font-semibold leading-tight">
                 Start now
@@ -1570,11 +1567,10 @@ updateActionBar: () => {
         <button
             type="button"
             onclick="app.setMethod('MANUAL')"
-            class="flex-1 py-2 px-3 text-xs font-medium rounded-2xl transition-all shadow-sm ${
-                state.locationMethod === 'MANUAL'
-                    ? 'bg-plaque-blue text-white'
-                    : 'bg-red-600 text-white'
-            }"
+            class="flex-1 py-2 px-3 text-xs font-medium rounded-2xl transition-all shadow-sm ${state.locationMethod === 'MANUAL'
+            ? 'bg-plaque-blue text-white'
+            : 'bg-red-600 text-white'
+          }"
         >
             <span class="block text-sm font-semibold leading-tight">
                 Plan for later
@@ -1585,8 +1581,7 @@ updateActionBar: () => {
         </button>
     </div>
 
-    ${
-        state.locationMethod === 'GPS'
+    ${state.locationMethod === 'GPS'
             ? `<p class="mt-1 text-xs text-gray-500">
                     Ideal when you’re already out in the city.
                     We’ll build a walk starting from where you are now.
@@ -1596,7 +1591,7 @@ updateActionBar: () => {
                     places for this collection in your chosen city and
                     suggest a clear starting area.
                </p>`
-    }
+          }
 </div>
             <!-- 4. Radius / stops sliders -->
             <div class="flex gap-4">
@@ -1626,45 +1621,45 @@ updateActionBar: () => {
         <p>Discover historical markers in London and beyond.</p>
     </div>
     `;
-},
+      },
 
-            renderPreview: () => {
-  const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
-  const stopCount = state.activeTour.length;
-  const radius = state.radius;
+      renderPreview: () => {
+        const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
+        const stopCount = state.activeTour.length;
+        const radius = state.radius;
 
-  const distanceMiles = state.tourDistanceMiles || 0;
-  const distanceStr = distanceMiles < 0.1
-    ? '< 0.1'
-    : distanceMiles.toFixed(1);
+        const distanceMiles = state.tourDistanceMiles || 0;
+        const distanceStr = distanceMiles < 0.1
+          ? '< 0.1'
+          : distanceMiles.toFixed(1);
 
-  const totalMinutes = state.tourTotalMinutes || 0;
-  const hours = Math.floor(totalMinutes / 60);
-  const mins = totalMinutes % 60;
-  const timeStr = hours
-    ? `${hours} hr ${mins} min`
-    : `${mins} min`;
+        const totalMinutes = state.tourTotalMinutes || 0;
+        const hours = Math.floor(totalMinutes / 60);
+        const mins = totalMinutes % 60;
+        const timeStr = hours
+          ? `${hours} hr ${mins} min`
+          : `${mins} min`;
 
-  const startStop = state.activeTour[0];
-  const followOnStops = state.activeTour.slice(1, 4); // first 3 after the start for teaser
-  const remainingCount = Math.max(0, stopCount - 1 - followOnStops.length);
+        const startStop = state.activeTour[0];
+        const followOnStops = state.activeTour.slice(1, 4); // first 3 after the start for teaser
+        const remainingCount = Math.max(0, stopCount - 1 - followOnStops.length);
 
-  const startLabel = state.isPlanned
-    ? (state.startHint || 'the suggested starting area')
-    : 'your current location';
+        const startLabel = state.isPlanned
+          ? (state.startHint || 'the suggested starting area')
+          : 'your current location';
 
-  const teaserFromSummary = (p) => {
-    if (!p || !p.summary) return 'stories from this part of the city.';
-    const firstSentence = p.summary.split(/[.!?]/)[0];
-    return firstSentence.trim() || 'stories from this part of the city.';
-  };
+        const teaserFromSummary = (p) => {
+          if (!p || !p.summary) return 'stories from this part of the city.';
+          const firstSentence = p.summary.split(/[.!?]/)[0];
+          return firstSentence.trim() || 'stories from this part of the city.';
+        };
 
-  // Alphabetised list of stops for the planning summary
-  const alphaStops = [...state.activeTour]
-    .slice()
-    .sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+        // Alphabetised list of stops for the planning summary
+        const alphaStops = [...state.activeTour]
+          .slice()
+          .sort((a, b) => (a.title || '').localeCompare(b.title || ''));
 
-  return `
+        return `
     <div class="pb-28">
       <div class="max-w-md mx-auto bg-white rounded-2xl shadow-xl border border-gray-100 p-6 space-y-4 mt-4">
         <h1 class="text-xl font-extrabold text-gray-900 mb-1">
@@ -1693,34 +1688,32 @@ updateActionBar: () => {
             ${teaserFromSummary(startStop)}
           </p>
 
-          ${
-            followOnStops.length
-              ? `
+          ${followOnStops.length
+            ? `
               <p>
                 From there, we’ll move on to
                 ${followOnStops
-                  .map((p, idx) => {
-                    const label = idx === 0 ? 'Stop A' : idx === 1 ? 'Stop B' : 'Stop C';
-                    return `<span class="font-semibold">${label} – ${p.title}</span>`;
-                  })
-                  .join(', ')
-                }.
+              .map((p, idx) => {
+                const label = idx === 0 ? 'Stop A' : idx === 1 ? 'Stop B' : 'Stop C';
+                return `<span class="font-semibold">${label} – ${p.title}</span>`;
+              })
+              .join(', ')
+            }.
                 At each stop, you’ll hear the stories behind the plaques and the people they commemorate.
               </p>
               `
-              : ''
+            : ''
           }
 
-          ${
-            remainingCount > 0
-              ? `
+          ${remainingCount > 0
+            ? `
               <p>
                 After these highlights, I’ll guide you to
                 <span class="font-semibold">${remainingCount} more stop${remainingCount > 1 ? 's' : ''}</span>
                 in this collection, all within easy walking distance.
               </p>
               `
-              : ''
+            : ''
           }
         </div>
 
@@ -1761,8 +1754,7 @@ updateActionBar: () => {
         </div>
 
         <!-- Planning summary: choose stops to replace -->
-        ${
-          stopCount > 0
+        ${stopCount > 0
             ? `
         <div class="mt-6">
           <h2 class="text-sm font-semibold text-gray-900 mb-1">
@@ -1774,8 +1766,7 @@ updateActionBar: () => {
 
           <!-- Whole section scrolls with the page now -->
           <div class="space-y-1">
-            ${
-              alphaStops.map(p => `
+            ${alphaStops.map(p => `
                 <label class="flex items-start gap-3 px-2 py-2 rounded-lg hover:bg-gray-50 cursor-pointer">
                   <input
                     type="checkbox"
@@ -1789,11 +1780,10 @@ updateActionBar: () => {
                         ${p.title}
                       </span>
                     </div>
-                    ${
-                      p.summary
-                        ? `<p class="text-xs text-gray-600 mt-0.5 break-words">${p.summary}</p>`
-                        : ''
-                    }
+                    ${p.summary
+                ? `<p class="text-xs text-gray-600 mt-0.5 break-words">${p.summary}</p>`
+                : ''
+              }
                   </div>
                 </label>
               `).join('')
@@ -1819,7 +1809,7 @@ updateActionBar: () => {
         </div>
         `
             : ''
-        }
+          }
 
         <!-- Actions -->
         <div class="mt-5 space-y-2">
@@ -1849,13 +1839,13 @@ updateActionBar: () => {
       </div>
     </div>
   `;
-},
+      },
 
-    renderTour: () => {
-    const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
+      renderTour: () => {
+        const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
 
-    const startNote = state.isPlanned
-        ? `
+        const startNote = state.isPlanned
+          ? `
         <div class="mb-4 bg-blue-50 border-l-4 border-plaque-blue p-3 rounded-r-lg text-xs text-gray-800">
             <p class="font-semibold mb-1">Suggested starting area</p>
             <p>
@@ -1866,7 +1856,7 @@ updateActionBar: () => {
             </p>
         </div>
         `
-        : `
+          : `
         <div class="mb-4 bg-green-50 border-l-4 border-green-500 p-3 rounded-r-lg text-xs text-gray-800">
             <p class="font-semibold mb-1">Start from where you are</p>
             <p>
@@ -1877,7 +1867,7 @@ updateActionBar: () => {
         </div>
         `;
 
-    return `
+        return `
     <div class="pb-32">
         <div class="flex items-center justify-between mb-4">
             <button onclick="app.goHome()" class="flex items-center text-gray-600 hover:text-plaque-blue font-medium transition-colors">
@@ -1906,39 +1896,39 @@ updateActionBar: () => {
         </div>
     </div>
     `;
-},
-renderCard: (plaque, index, total) => {
-    const isStart = index === 0;
-    const isEnd = index === total - 1;
-    const isSel = state.selectedForRemoval.has(plaque.id);
+      },
+      renderCard: (plaque, index, total) => {
+        const isStart = index === 0;
+        const isEnd = index === total - 1;
+        const isSel = state.selectedForRemoval.has(plaque.id);
 
-    const isPaidTour = !!(state.activeTourMeta && state.activeTourMeta.isPaid);
-    const canEditTour = !isPaidTour;
+        const isPaidTour = !!(state.activeTourMeta && state.activeTourMeta.isPaid);
+        const canEditTour = !isPaidTour;
 
-    let badge = '', label = '', bg = '';
-    if (isStart) {
-        badge = Icons.Play;
-        label = 'Starting Point';
-        bg = 'bg-green-600';
-    } else if (isEnd) {
-        badge = Icons.Flag;
-        label = 'Final Stop';
-        bg = 'bg-gray-800';
-    } else {
-        badge = String.fromCharCode(65 + (index - 1));
-        label = `Stop ${index}`;
-        bg = 'bg-plaque-blue';
-    }
+        let badge = '', label = '', bg = '';
+        if (isStart) {
+          badge = Icons.Play;
+          label = 'Starting Point';
+          bg = 'bg-green-600';
+        } else if (isEnd) {
+          badge = Icons.Flag;
+          label = 'Final Stop';
+          bg = 'bg-gray-800';
+        } else {
+          badge = String.fromCharCode(65 + (index - 1));
+          label = `Stop ${index}`;
+          bg = 'bg-plaque-blue';
+        }
 
-    const isCurrentAudio = state.currentSpeechPlaqueId === plaque.id;
-    const isPaused = state.isSpeechPaused && isCurrentAudio;
-    const isPlaying = state.isSpeechPlaying && isCurrentAudio;
-    const cardBorderClass =
-    isSel && canEditTour
-        ? 'border-red-500 bg-red-50'
-        : 'border-plaque-blue';
+        const isCurrentAudio = state.currentSpeechPlaqueId === plaque.id;
+        const isPaused = state.isSpeechPaused && isCurrentAudio;
+        const isPlaying = state.isSpeechPlaying && isCurrentAudio;
+        const cardBorderClass =
+          isSel && canEditTour
+            ? 'border-red-500 bg-red-50'
+            : 'border-plaque-blue';
 
-return `
+        return `
     <div id="card-${plaque.id}"
          class="bg-white rounded-xl shadow-md overflow-hidden border-l-4 mb-4
                 relative group transition-all ${cardBorderClass}">
@@ -1954,9 +1944,8 @@ return `
                     ${canEditTour ? `
                     <label class="flex items-center gap-2 cursor-pointer select-none">
                     <span id="txt-${plaque.id}"
-                    class="text-xs font-bold uppercase ${
-                    isSel ? 'text-red-600' : 'text-gray-400 group-hover:text-gray-600'
-                    }">
+                    class="text-xs font-bold uppercase ${isSel ? 'text-red-600' : 'text-gray-400 group-hover:text-gray-600'
+            }">
                     ${isSel ? 'Remove' : 'Keep'}
                    </span>
         <input
@@ -2007,11 +1996,11 @@ return `
             </div>
         </div>
     `;
-},
-renderFavorites: () => {
-  const tours = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      },
+      renderFavorites: () => {
+        const tours = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
 
-  return `
+        return `
     <div class="h-full">
       <div class="flex items-center mb-6">
         <button onclick="app.goHome()" class="p-2 -ml-2 text-gray-600 hover:text-plaque-blue">
@@ -2020,9 +2009,8 @@ renderFavorites: () => {
         <h2 class="text-2xl font-bold text-gray-900 ml-2">My Saved Tours</h2>
       </div>
 
-      ${
-        tours.length === 0
-          ? `
+      ${tours.length === 0
+            ? `
           <div class="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
             <p class="text-gray-500 mb-4">No saved tours yet.</p>
             <button onclick="app.goHome()" class="text-plaque-blue font-medium hover:underline">
@@ -2030,17 +2018,16 @@ renderFavorites: () => {
             </button>
           </div>
         `
-          : `
+            : `
           <div class="space-y-4">
-            ${
-              tours
-                .map((tour) => {
-                  const isPaid = !!tour.isPaid; // old tours default to locked
-                  const padlockIcon = isPaid ? Icons.PadlockUnlocked : Icons.PadlockLocked;
-                  const padlockText = isPaid ? 'Unlocked tour' : 'Locked – payment required';
-                  const padlockColor = isPaid ? 'text-plaque-blue' : 'text-red-500';
+            ${tours
+              .map((tour) => {
+                const isPaid = !!tour.isPaid; // old tours default to locked
+                const padlockIcon = isPaid ? Icons.PadlockUnlocked : Icons.PadlockLocked;
+                const padlockText = isPaid ? 'Unlocked tour' : 'Locked – payment required';
+                const padlockColor = isPaid ? 'text-plaque-blue' : 'text-red-500';
 
-                  return `
+                return `
                     <div onclick="app.loadTour('${tour.id}')"
                          class="bg-white p-5 rounded-xl shadow-sm border border-gray-200
                                 hover:border-plaque-blue hover:shadow-md transition-all cursor-pointer
@@ -2051,28 +2038,26 @@ renderFavorites: () => {
                             ${tour.name || `${tour.cityName} walk`}
                           </h3>
                           <p class="text-xs text-gray-500 mt-1">
-                            ${
-                              tour.isPlanned
-                                ? `Planned tour – start near: ${tour.startHint || 'chosen address'}`
-                                : 'Recorded from your current location'
-                            }
+                            ${tour.isPlanned
+                    ? `Planned tour – start near: ${tour.startHint || 'chosen address'}`
+                    : 'Recorded from your current location'
+                  }
                           </p>
                           <p class="text-xs text-gray-400 mt-1">
                             Saved on ${new Date(tour.date).toLocaleDateString()}
                           </p>
                           <div class="mt-3 flex gap-1">
                             ${tour.plaques
-                              .slice(0, 3)
-                              .map(
-                                () =>
-                                  `<div class="w-2 h-2 rounded-full bg-gray-300 group-hover:bg-plaque-blue"></div>`
-                              )
-                              .join('')}
-                            ${
-                              tour.plaques.length > 3
-                                ? `<span class="text-xs text-gray-400 ml-1">+${tour.plaques.length - 3}</span>`
-                                : ''
-                            }
+                    .slice(0, 3)
+                    .map(
+                      () =>
+                        `<div class="w-2 h-2 rounded-full bg-gray-300 group-hover:bg-plaque-blue"></div>`
+                    )
+                    .join('')}
+                            ${tour.plaques.length > 3
+                    ? `<span class="text-xs text-gray-400 ml-1">+${tour.plaques.length - 3}</span>`
+                    : ''
+                  }
                           </div>
                         </div>
 
@@ -2095,18 +2080,18 @@ renderFavorites: () => {
                       </div>
                     </div>
                   `;
-                })
-                .join('')
+              })
+              .join('')
             }
           </div>
         `
-      }
+          }
     </div>
   `;
-},
-    
-            renderGuide: () => {
-                return `
+      },
+
+      renderGuide: () => {
+        return `
                 <div class="max-w-md mx-auto bg-white rounded-2xl shadow-md p-6 space-y-4 mt-4">
                     <h2 class="text-xl font-bold text-gray-900">How Curated Tours works</h2>
                     <p class="text-sm text-gray-700">
@@ -2162,10 +2147,10 @@ renderFavorites: () => {
                     </p>
                 </div>
                 `;
-            },
+      },
 
-            renderColours: () => {
-                return `
+      renderColours: () => {
+        return `
                 <div class="max-w-md mx-auto bg-white rounded-2xl shadow-md p-6 space-y-4 mt-4">
                     <h2 class="text-xl font-bold text-gray-900">Understanding plaque colours</h2>
                     <p class="text-sm text-gray-700">
@@ -2213,11 +2198,12 @@ renderFavorites: () => {
                     </div>
                 </div>
                 `;
-            }
-        };
+      }
+    };
 
-        // Initialize App
-        app.init();
-    </script>
+    // Initialize App
+    app.init();
+  </script>
 </body>
+
 </html>
