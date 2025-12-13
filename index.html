@@ -1709,22 +1709,15 @@ renderPreview: () => {
             }
           </div>
 
-          <div class="mt-3 flex flex-col sm:flex-row gap-2">
-            <button
-              type="button"
-              onclick="app.applyPlanningChanges()"
-              class="flex-1 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold py-2.5 rounded-lg shadow-sm transition-colors"
-            >
-              Apply changes &amp; regenerate tour
-            </button>
-            <button
-              type="button"
-              onclick="app.resetPlanningSelection()"
-              class="flex-1 bg-white border border-gray-300 text-gray-700 text-sm font-semibold py-2.5 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Reset selection
-            </button>
-          </div>
+<div class="mt-3">
+  <button
+    type="button"
+    onclick="app.applyPlanningChanges()"
+    class="w-full bg-red-600 hover:bg-red-700 text-white text-sm font-semibold py-2.5 rounded-lg shadow-sm transition-colors"
+  >
+    Apply changes &amp; regenerate tour
+  </button>
+</div>
         </div>
         `
             : ''
