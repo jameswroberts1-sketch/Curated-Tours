@@ -851,105 +851,105 @@
         app.render();
       },
 
-            // ------------------
-            // AUDIO LOGIC
-            // ------------------
-            speak: async (plaqueId) => {
-                const plaque = state.activeTour.find(p => p.id === plaqueId);
-                if (!plaque) return;
+      // ------------------
+      // AUDIO LOGIC
+      // ------------------
+      speak: async (plaqueId) => {
+        const plaque = state.activeTour.find(p => p.id === plaqueId);
+        if (!plaque) return;
 
-                if (!('speechSynthesis' in window)) {
-                    alert('Spoken audio is not supported on this device/browser.');
-                    return;
-                }
+        if (!('speechSynthesis' in window)) {
+          alert('Spoken audio is not supported on this device/browser.');
+          return;
+        }
 
-                // --- Location gate: stop couch-surfing ---
-                let loc;
-                try {
-                    // Fresh position each time you try to listen
-                    loc = await Geo.getCurrentPosition();
-                    state.userLocation = loc;
-                } catch (err) {
-                    alert(
-                        "To hear this stop, you'll need to allow location access on your device " +
-                        "and listen while you’re actually at the stop."
-                    );
-                    return;
-                }
+        // --- Location gate: stop couch-surfing ---
+        let loc;
+        try {
+          // Fresh position each time you try to listen
+          loc = await Geo.getCurrentPosition();
+          state.userLocation = loc;
+        } catch (err) {
+          alert(
+            "To hear this stop, you'll need to allow location access on your device " +
+            "and listen while you’re actually at the stop."
+          );
+          return;
+        }
 
-                const hasCoords =
-                    Number.isFinite(plaque.latitude) && Number.isFinite(plaque.longitude);
+        const hasCoords =
+          Number.isFinite(plaque.latitude) && Number.isFinite(plaque.longitude);
 
-                if (hasCoords) {
-                    const dist = Geo.calculateDistance(
-                        loc.latitude,
-                        loc.longitude,
-                        plaque.latitude,
-                        plaque.longitude
-                    );
+        if (hasCoords) {
+          const dist = Geo.calculateDistance(
+            loc.latitude,
+            loc.longitude,
+            plaque.latitude,
+            plaque.longitude
+          );
 
-                    if (dist > AUDIO_UNLOCK_DISTANCE) {
-                        alert(
-                            "Sorry, this audio can only be played when you're at this stop on foot.\n\n" +
-                            "Walk to the stop, then try again."
-                        );
-                        return;
-                    }
-                }
+          if (dist > AUDIO_UNLOCK_DISTANCE) {
+            alert(
+              "Sorry, this audio can only be played when you're at this stop on foot.\n\n" +
+              "Walk to the stop, then try again."
+            );
+            return;
+          }
+        }
 
-                // We’re close enough – mark this stop as unlocked for the rest of the walk
-                state.unlockedStops.add(plaqueId);
+        // We’re close enough – mark this stop as unlocked for the rest of the walk
+        state.unlockedStops.add(plaqueId);
 
-                // --- Actual speech logic (unchanged) ---
-                // Stop anything currently speaking first
-                window.speechSynthesis.cancel();
+        // --- Actual speech logic (unchanged) ---
+        // Stop anything currently speaking first
+        window.speechSynthesis.cancel();
 
-                const baseText = `${plaque.title}. ${plaque.bio || plaque.summary || ''}`;
-                const text = baseText.trim();
-                if (!text) {
-                    alert('No description available to read for this place of interest.');
-                    return;
-                }
+        const baseText = `${plaque.title}. ${plaque.bio || plaque.summary || ''}`;
+        const text = baseText.trim();
+        if (!text) {
+          alert('No description available to read for this place of interest.');
+          return;
+        }
 
-                const utterance = new SpeechSynthesisUtterance(text);
+        const utterance = new SpeechSynthesisUtterance(text);
 
-                // Prefer our chosen English female / UK voice if available
-                if (preferredVoice) {
-                    utterance.voice = preferredVoice;
-                    utterance.lang = preferredVoice.lang || 'en-GB';
-                } else {
-                    utterance.lang = 'en-GB';
-                }
+        // Prefer our chosen English female / UK voice if available
+        if (preferredVoice) {
+          utterance.voice = preferredVoice;
+          utterance.lang = preferredVoice.lang || 'en-GB';
+        } else {
+          utterance.lang = 'en-GB';
+        }
 
-                // Slightly slower / warmer delivery
-                utterance.rate = 0.95;
-                utterance.pitch = 1.0;
-                utterance.volume = 1.0;
+        // Slightly slower / warmer delivery
+        utterance.rate = 0.95;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
 
-                utterance.onstart = () => {
-                    state.currentSpeechPlaqueId = plaqueId;
-                    state.isSpeechPlaying = true;
-                    state.isSpeechPaused = false;
-                    app.render();
-                };
+        utterance.onstart = () => {
+          state.currentSpeechPlaqueId = plaqueId;
+          state.isSpeechPlaying = true;
+          state.isSpeechPaused = false;
+          app.render();
+        };
 
-                utterance.onend = () => {
-                    state.isSpeechPlaying = false;
-                    state.isSpeechPaused = false;
-                    state.currentSpeechPlaqueId = null;
-                    app.render();
-                };
+        utterance.onend = () => {
+          state.isSpeechPlaying = false;
+          state.isSpeechPaused = false;
+          state.currentSpeechPlaqueId = null;
+          app.render();
+        };
 
-                utterance.onerror = (e) => {
-                    console.error('Speech error', e);
-                    state.isSpeechPlaying = false;
-                    state.isSpeechPaused = false;
-                    state.currentSpeechPlaqueId = null;
-                    app.render();
-                };
+        utterance.onerror = (e) => {
+          console.error('Speech error', e);
+          state.isSpeechPlaying = false;
+          state.isSpeechPaused = false;
+          state.currentSpeechPlaqueId = null;
+          app.render();
+        };
 
-                window.speechSynthesis.speak(utterance);
-            },
+        window.speechSynthesis.speak(utterance);
+      },
 
 
       pauseSpeech: () => {
@@ -984,65 +984,65 @@
         app.render();
       },
 
-            startAudioWatch: () => {
-                if (!navigator.geolocation) return;
+      startAudioWatch: () => {
+        if (!navigator.geolocation) return;
 
-                app.stopAudioWatch();
+        app.stopAudioWatch();
 
-                state.watchId = navigator.geolocation.watchPosition(
-                    (pos) => {
-                        const uLat = pos.coords.latitude;
-                        const uLng = pos.coords.longitude;
-                        state.userLocation = { latitude: uLat, longitude: uLng };
+        state.watchId = navigator.geolocation.watchPosition(
+          (pos) => {
+            const uLat = pos.coords.latitude;
+            const uLng = pos.coords.longitude;
+            state.userLocation = { latitude: uLat, longitude: uLng };
 
-                        if (!state.activeTour.length) return;
+            if (!state.activeTour.length) return;
 
-                        // Next stop in order that we haven’t unlocked yet
-                        const nextIndex = state.activeTour.findIndex(
-                            (p) => !state.unlockedStops.has(p.id)
-                        );
+            // Next stop in order that we haven’t unlocked yet
+            const nextIndex = state.activeTour.findIndex(
+              (p) => !state.unlockedStops.has(p.id)
+            );
 
-                        if (nextIndex === -1) {
-                            // All stops unlocked – nothing more to do
-                            app.stopAudioWatch();
-                            return;
-                        }
+            if (nextIndex === -1) {
+              // All stops unlocked – nothing more to do
+              app.stopAudioWatch();
+              return;
+            }
 
-                        state.currentStopIndex = nextIndex;
-                        const nextStop = state.activeTour[nextIndex];
+            state.currentStopIndex = nextIndex;
+            const nextStop = state.activeTour[nextIndex];
 
-                        if (
-                            !Number.isFinite(nextStop.latitude) ||
-                            !Number.isFinite(nextStop.longitude)
-                        ) {
-                            return;
-                        }
+            if (
+              !Number.isFinite(nextStop.latitude) ||
+              !Number.isFinite(nextStop.longitude)
+            ) {
+              return;
+            }
 
-                        const dist = Geo.calculateDistance(
-                            uLat,
-                            uLng,
-                            nextStop.latitude,
-                            nextStop.longitude
-                        );
+            const dist = Geo.calculateDistance(
+              uLat,
+              uLng,
+              nextStop.latitude,
+              nextStop.longitude
+            );
 
-                        if (
-                            dist <= AUDIO_UNLOCK_DISTANCE &&
-                            !state.unlockedStops.has(nextStop.id)
-                        ) {
-                            // Unlock and show “you’re almost there”
-                            state.unlockedStops.add(nextStop.id);
-                            state.nearlyThereStopId = nextStop.id;
+            if (
+              dist <= AUDIO_UNLOCK_DISTANCE &&
+              !state.unlockedStops.has(nextStop.id)
+            ) {
+              // Unlock and show “you’re almost there”
+              state.unlockedStops.add(nextStop.id);
+              state.nearlyThereStopId = nextStop.id;
 
-                            // Optional spoken nudge, but don’t interrupt a story if it’s already playing
-                            app.playNearStopPrompt(nextStop);
+              // Optional spoken nudge, but don’t interrupt a story if it’s already playing
+              app.playNearStopPrompt(nextStop);
 
-                            app.render();
-                        }
-                    },
-                    (err) => console.error(err),
-                    { enableHighAccuracy: true }
-                );
-            },
+              app.render();
+            }
+          },
+          (err) => console.error(err),
+          { enableHighAccuracy: true }
+        );
+      },
 
 
       stopAudioWatch: () => {
@@ -1053,30 +1053,30 @@
       },
 
       // Short spoken “you’re nearly there” nudge
-            playNearStopPrompt: (plaque) => {
-                if (!('speechSynthesis' in window)) return;
-                if (state.isSpeechPlaying) return; // don’t talk over a story
+      playNearStopPrompt: (plaque) => {
+        if (!('speechSynthesis' in window)) return;
+        if (state.isSpeechPlaying) return; // don’t talk over a story
 
-                try {
-                    const text = `You are almost at your next stop, ${plaque.title}. 
+        try {
+          const text = `You are almost at your next stop, ${plaque.title}. 
                     Once you arrive, open Curated Tours and tap Continue to hear the story.`;
 
-                    const u = new SpeechSynthesisUtterance(text.trim());
-                    if (preferredVoice) {
-                        u.voice = preferredVoice;
-                        u.lang = preferredVoice.lang || 'en-GB';
-                    } else {
-                        u.lang = 'en-GB';
-                    }
-                    u.rate = 1.0;
-                    u.pitch = 1.0;
-                    u.volume = 0.9;
+          const u = new SpeechSynthesisUtterance(text.trim());
+          if (preferredVoice) {
+            u.voice = preferredVoice;
+            u.lang = preferredVoice.lang || 'en-GB';
+          } else {
+            u.lang = 'en-GB';
+          }
+          u.rate = 1.0;
+          u.pitch = 1.0;
+          u.volume = 0.9;
 
-                    window.speechSynthesis.speak(u);
-                } catch (e) {
-                    console.warn('Near-stop prompt failed', e);
-                }
-            },
+          window.speechSynthesis.speak(u);
+        } catch (e) {
+          console.warn('Near-stop prompt failed', e);
+        }
+      },
 
 
       // Logic: Load Collections (and feed autocomplete)
@@ -1747,34 +1747,34 @@
     `;
       },
 
-renderPreview: () => {
-  const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
-  const stopCount = state.activeTour.length;
-  const radius = state.radius;
+      renderPreview: () => {
+        const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
+        const stopCount = state.activeTour.length;
+        const radius = state.radius;
 
-  const distanceMiles = state.tourDistanceMiles || 0;
-  const distanceStr = distanceMiles < 0.1
-    ? '< 0.1'
-    : distanceMiles.toFixed(1);
+        const distanceMiles = state.tourDistanceMiles || 0;
+        const distanceStr = distanceMiles < 0.1
+          ? '< 0.1'
+          : distanceMiles.toFixed(1);
 
-  const totalMinutes = state.tourTotalMinutes || 0;
-  const hours = Math.floor(totalMinutes / 60);
-  const mins = totalMinutes % 60;
-  const timeStr = hours
-    ? `${hours} hr ${mins} min`
-    : `${mins} min`;
+        const totalMinutes = state.tourTotalMinutes || 0;
+        const hours = Math.floor(totalMinutes / 60);
+        const mins = totalMinutes % 60;
+        const timeStr = hours
+          ? `${hours} hr ${mins} min`
+          : `${mins} min`;
 
-  const startLabel = state.isPlanned
-    ? (state.startHint || 'the suggested starting area')
-    : 'your current location';
+        const startLabel = state.isPlanned
+          ? (state.startHint || 'the suggested starting area')
+          : 'your current location';
 
-  const alphaStops = [...state.activeTour]
-    .slice()
-    .sort((a, b) => (a.title || '').localeCompare(b.title || ''));
-  
-  const hasMarkedForReplace = state.planningMarkedForReplace.size > 0;
+        const alphaStops = [...state.activeTour]
+          .slice()
+          .sort((a, b) => (a.title || '').localeCompare(b.title || ''));
 
-  return `
+        const hasMarkedForReplace = state.planningMarkedForReplace.size > 0;
+
+        return `
     <div class="pb-28">
       <div class="max-w-md mx-auto bg-white rounded-2xl shadow-xl border border-gray-100 p-6 space-y-4 mt-4">
         <h1 class="text-xl font-extrabold text-gray-900 mb-1">
@@ -1795,8 +1795,7 @@ renderPreview: () => {
           stops that match your chosen collection.
         </p>
 
-        ${
-          stopCount > 0
+        ${stopCount > 0
             ? `
         <!-- Planning summary: choose stops to replace -->
         <div class="mt-4">
@@ -1809,8 +1808,7 @@ renderPreview: () => {
           </p>
 
           <div class="space-y-1">
-            ${
-              alphaStops.map(p => `
+            ${alphaStops.map(p => `
                 <label class="flex items-start gap-3 px-2 py-2 rounded-lg hover:bg-gray-50 cursor-pointer">
                   <input
                     type="checkbox"
@@ -1824,11 +1822,10 @@ renderPreview: () => {
                         ${p.title}
                       </span>
                     </div>
-                    ${
-                      p.summary
-                        ? `<p class="text-xs text-gray-600 mt-0.5 break-words">${p.summary}</p>`
-                        : ''
-                    }
+                    ${p.summary
+                ? `<p class="text-xs text-gray-600 mt-0.5 break-words">${p.summary}</p>`
+                : ''
+              }
                   </div>
                 </label>
               `).join('')
@@ -1836,9 +1833,8 @@ renderPreview: () => {
           </div>
 
           <div class="mt-3 flex flex-col sm:flex-row gap-2">
-            ${
-              hasMarkedForReplace
-                ? `
+            ${hasMarkedForReplace
+              ? `
                   <button
                     type="button"
                     onclick="app.applyPlanningChanges()"
@@ -1847,7 +1843,7 @@ renderPreview: () => {
                     Apply changes &amp; regenerate tour
                   </button>
                 `
-                : `
+              : `
                   <p class="flex-1 text-xs text-gray-500">
                     Tick one or more stops above that you’d like me to swap out, and I’ll regenerate the tour.
                   </p>
@@ -1865,7 +1861,7 @@ renderPreview: () => {
         </div>
         `
             : ''
-        }
+          }
 
         <!-- Distance / time summary -->
         <div class="mt-6 grid grid-cols-2 gap-3 text-sm">
@@ -1931,17 +1927,17 @@ renderPreview: () => {
       </div>
     </div>
   `;
-},
+      },
 
-                  renderNearStopBanner: () => {
-                if (!state.nearlyThereStopId) return '';
+      renderNearStopBanner: () => {
+        if (!state.nearlyThereStopId) return '';
 
-                const plaque = state.activeTour.find(
-                    (p) => p.id === state.nearlyThereStopId
-                );
-                if (!plaque) return '';
+        const plaque = state.activeTour.find(
+          (p) => p.id === state.nearlyThereStopId
+        );
+        if (!plaque) return '';
 
-                return `
+        return `
                   <div class="mb-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg p-3 text-xs text-gray-800">
                     <p class="font-semibold mb-1">
                       You’re almost at: <span class="font-bold">${plaque.title}</span>
@@ -1958,7 +1954,7 @@ renderPreview: () => {
                     </button>
                   </div>
                 `;
-            },
+      },
 
       renderTour: () => {
         const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
@@ -1984,7 +1980,7 @@ renderPreview: () => {
             </p>
         </div>
         `;
-       const nearStopBanner = app.renderNearStopBanner();
+        const nearStopBanner = app.renderNearStopBanner();
         return `
     <div class="pb-32">
         <div class="flex items-center justify-between mb-4">
@@ -2115,7 +2111,7 @@ renderPreview: () => {
         </div>
     `;
       },
-      
+
       renderFavorites: () => {
         const tours = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
 
@@ -2209,20 +2205,20 @@ renderPreview: () => {
   `;
       },
 
-                  confirmArrivedAtStop: (plaqueId) => {
-                // Keep this stop unlocked and clear the banner
-                state.unlockedStops.add(plaqueId);
-                state.nearlyThereStopId = null;
-                app.render();
+      confirmArrivedAtStop: (plaqueId) => {
+        // Keep this stop unlocked and clear the banner
+        state.unlockedStops.add(plaqueId);
+        state.nearlyThereStopId = null;
+        app.render();
 
-                // After re-render, scroll that card into view
-                setTimeout(() => {
-                    const el = document.getElementById(`card-${plaqueId}`);
-                    if (el) {
-                        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }
-                }, 50);
-            },
+        // After re-render, scroll that card into view
+        setTimeout(() => {
+          const el = document.getElementById(`card-${plaqueId}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 50);
+      },
 
       renderGuide: () => {
         return `
