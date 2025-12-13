@@ -2656,8 +2656,8 @@
    "machine_tag": "",
    "title": "The Red Lion",
    "inscription": "Picture the yard packed with coaches and horses, hostlers shouting and lanterns swinging as travellers stepped down, stiff-legged, after a long day on the road. Parts of the Red Lion go back to the 15th century, and by the time Charles I raised his standard at Nottingham in 1642 to begin the Civil War, this inn was already an old hand at hosting political intrigue and royal journeys.",
-   "latitude": 51.53779991,
-   "longitude": -0.90127703,
+   "latitude": 51.5377040010948,
+   "longitude": -0.90114538448705,
    "country": "",
    "area": "Henley-on-Thames",
    "address": "19B Hart St, Henley-on-Thames RG9 2AR",
@@ -3275,4 +3275,5 @@
    "subjects": "",
    "status": ""
  }
+
 ]
