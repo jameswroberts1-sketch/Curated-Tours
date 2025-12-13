@@ -150,6 +150,8 @@
       currentSpeechPlaqueId: null,
       isSpeechPlaying: false,
       isSpeechPaused: false,
+      currentStopIndex: 0,     // which stop is "next" on the tour
+      toast: null,             // small confirmation message (e.g. after skipping)
       tourDistanceMiles: 0,
       tourWalkMinutes: 0,
       tourTotalMinutes: 0,
@@ -615,13 +617,15 @@
       },
 
       // View Switchers
-      goHome: () => {
-        state.view = 'HOME';
-        state.activeTour = [];
-        state.selectedForRemoval = new Set();
-        app.stopAudioWatch();
-        app.render();
-      },
+                  goHome: () => {
+                state.view = 'HOME';
+                state.activeTour = [];
+                state.selectedForRemoval = new Set();
+                state.currentStopIndex = 0;
+                app.stopAudioWatch();
+                app.render();
+            },
+
 
       goFavorites: () => {
         state.view = 'FAVORITES';
@@ -725,6 +729,29 @@
         state.collection = val;
         app.render();
       },
+
+                  getCurrentStopIndex: () => {
+                return state.currentStopIndex || 0;
+            },
+
+            getRemainingStops: () => {
+                if (!state.activeTour || !state.activeTour.length) return [];
+                const idx = state.currentStopIndex || 0;
+                const start = Math.min(idx, state.activeTour.length);
+                return state.activeTour.slice(start);
+            },
+
+            showToast: (message) => {
+                state.toast = message;
+                app.render();
+                setTimeout(() => {
+                    if (state.toast === message) {
+                        state.toast = null;
+                        app.render();
+                    }
+                }, 2000);
+            },
+
 
       // ----------------------------
       // PLANNING-STAGE KEEP/REPLACE
@@ -1078,6 +1105,46 @@
         }
       },
 
+            continueFromStop: (plaqueId) => {
+                if (!state.activeTour || !state.activeTour.length) return;
+
+                const idx = state.activeTour.findIndex(p => p.id === plaqueId);
+                if (idx === -1) return;
+
+                const isCurrentAudio = state.currentSpeechPlaqueId === plaqueId;
+
+                // If this stop is currently playing audio, confirm first
+                if (isCurrentAudio && state.isSpeechPlaying) {
+                    const ok = confirm(
+                        'Are you sure? Continuing to the next stop will stop the audio for this stop.'
+                    );
+                    if (!ok) return;
+                }
+
+                // Stop any audio for this stop
+                if (isCurrentAudio) {
+                    app.stopSpeech();
+                }
+
+                const nextIndex = idx + 1;
+
+                if (nextIndex >= state.activeTour.length) {
+                    // No more stops; we've effectively finished the tour
+                    state.currentStopIndex = state.activeTour.length;
+                    app.showToast('You’ve reached the final stop on this Curated Tour.');
+                } else {
+                    // Advance "next stop" pointer if this moves us forward
+                    const current = state.currentStopIndex || 0;
+                    if (nextIndex > current) {
+                        state.currentStopIndex = nextIndex;
+                    }
+                    app.showToast('Okay, moving on to the next stop.');
+                }
+
+                // Refresh the Maps link so it points to the remaining stops
+                app.updateActionBar();
+                app.render();
+            },
 
       // Logic: Load Collections (and feed autocomplete)
       loadCategories: async () => {
@@ -1215,6 +1282,7 @@
 
           // NEW: clear any planning-stage replace flags
           state.planningMarkedForReplace = new Set();
+          state.currentStopIndex = 0;
 
           // NEW: reset on-foot navigation state
           state.unlockedStops = new Set();
@@ -1412,6 +1480,8 @@
           isPaid: !!tour.isPaid,
         };
 
+        state.currentStopIndex = 0;
+
         // NEW: reset on-foot navigation state for this loaded tour
         state.unlockedStops = new Set();
         state.currentStopIndex = 0;
@@ -1433,18 +1503,22 @@
       // --- Render Functions ---
 
       updateActionBar: () => {
-        const bar = document.getElementById('action-bar');
-        if (!bar) return;
+    const bar = document.getElementById('action-bar');
+    if (!bar) return;
 
-        const isPaidTour = !!(state.activeTourMeta && state.activeTourMeta.isPaid);
-        const isManualPlanningContext =
-          state.view === 'TOUR' && state.locationMethod === 'MANUAL';
+    const isPaidTour = !!(state.activeTourMeta && state.activeTourMeta.isPaid);
+    const isManualPlanningContext =
+        state.view === 'TOUR' && state.locationMethod === 'MANUAL';
 
-        // Common map URLs
-        const navUrl = Geo.generateMapsNavUrl(state.activeTour);
-        const previewUrl = isManualPlanningContext
-          ? Geo.generateMapsPreviewUrl(state.activeTour)
-          : null;
+    // Use only the remaining stops from the current index onwards
+    const remainingStops = app.getRemainingStops();
+    const navStops = remainingStops.length ? remainingStops : state.activeTour;
+
+    const navUrl = Geo.generateMapsNavUrl(navStops);
+    const previewUrl = isManualPlanningContext
+        ? Geo.generateMapsPreviewUrl(navStops)
+        : null;
+
 
         const previewButtonHtml = previewUrl
           ? `
@@ -1554,6 +1628,15 @@
       render: () => {
         const root = document.getElementById('app');
         let html = '';
+        if (state.toast) {
+        html += `
+        <div class="fixed top-16 left-0 right-0 z-40 flex justify-center pointer-events-none">
+            <div class="bg-gray-900 text-white text-xs px-3 py-2 rounded-full shadow-md pointer-events-auto">
+                ${state.toast}
+            </div>
+        </div>`;
+    }
+
         if (state.error) {
           html += `
         <div class="mb-6 mt-4 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
@@ -2100,6 +2183,18 @@
                         </button>
                     ` : ''}
                 </div>
+                ${!isEnd ? `
+                <div class="mt-3 flex justify-end">
+                    <button
+                        type="button"
+                        onclick="app.continueFromStop('${plaque.id}')"
+                        class="text-xs font-semibold text-plaque-blue hover:underline"
+                    >
+                        Skip this stop / continue to next
+                    </button>
+                </div>
+                ` : ''}
+
             </div>
         </div>
     `;
