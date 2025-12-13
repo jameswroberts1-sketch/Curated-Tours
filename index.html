@@ -1286,7 +1286,6 @@
 
           // NEW: reset on-foot navigation state
           state.unlockedStops = new Set();
-          state.currentStopIndex = 0;
           state.nearlyThereStopId = null;
 
           // 4. Compute a friendly startHint
@@ -1502,128 +1501,114 @@
 
       // --- Render Functions ---
 
-      updateActionBar: () => {
-    const bar = document.getElementById('action-bar');
-    if (!bar) return;
+updateActionBar: () => {
+  const bar = document.getElementById('action-bar');
+  if (!bar) return;
 
-    const isPaidTour = !!(state.activeTourMeta && state.activeTourMeta.isPaid);
-    const isManualPlanningContext =
-        state.view === 'TOUR' && state.locationMethod === 'MANUAL';
+  const isPaidTour = !!(state.activeTourMeta && state.activeTourMeta.isPaid);
+  const isManualPlanningContext =
+    state.view === 'TOUR' && state.locationMethod === 'MANUAL';
 
-    // Use only the remaining stops from the current index onwards
-    const remainingStops = app.getRemainingStops();
-    const navStops = remainingStops.length ? remainingStops : state.activeTour;
+  // Use only the remaining stops from the current index onwards
+  const remainingStops = app.getRemainingStops();
+  const navStops = remainingStops.length ? remainingStops : state.activeTour;
 
-    const navUrl = Geo.generateMapsNavUrl(navStops);
-    const previewUrl = isManualPlanningContext
-        ? Geo.generateMapsPreviewUrl(navStops)
-        : null;
+  const navUrl = Geo.generateMapsNavUrl(navStops);
+  const previewUrl = isManualPlanningContext
+    ? Geo.generateMapsPreviewUrl(navStops)
+    : null;
 
+  const previewButtonHtml = previewUrl
+    ? `
+      <a
+        href="${previewUrl}"
+        target="_blank"
+        class="w-full bg-white border border-gray-300 text-gray-700 hover:bg-gray-50
+               font-bold py-3 rounded-xl flex items-center justify-center gap-2
+               shadow-sm transition-colors"
+      >
+        ${Icons.MapPin} Preview route near planned start
+      </a>
+    `
+    : '';
 
-        const previewButtonHtml = previewUrl
-          ? `
-            <a
-              href="${previewUrl}"
-              target="_blank"
-              class="w-full bg-white border border-gray-300 text-gray-700 hover:bg-gray-50
-                     font-bold py-3 rounded-xl flex items-center justify-center gap-2
-                     shadow-sm transition-colors"
-            >
-              ${Icons.MapPin} Preview route near planned start
-            </a>
-          `
-          : '';
+  // If the tour is paid, **no regenerate / remove controls**, just navigation + save
+  if (isPaidTour) {
+    state.selectedForRemoval = new Set(); // clear any stale selection
+    bar.innerHTML = `
+      <div class="max-w-md mx-auto w-full space-y-2">
+        <a
+          href="${navUrl}"
+          target="_blank"
+          class="w-full bg-blue-100 hover:bg-blue-200 text-plaque-blue
+                 font-bold py-3 rounded-xl flex items-center justify-center gap-2
+                 shadow-sm transition-colors"
+        >
+          ${Icons.MapPin} Start in Google Maps
+        </a>
+        ${previewButtonHtml}
+        <button
+          onclick="app.saveTour()"
+          class="w-full bg-green-600 hover:bg-green-700 text-white font-bold
+                 py-3 rounded-xl flex items-center justify-center gap-2
+                 shadow-md transition-colors"
+        >
+          ${Icons.Heart(true)} Save to Favorites
+        </button>
+      </div>
+    `;
+    return;
+  }
 
-        // If the tour is paid, **no regenerate / remove controls**, just navigation + save
-        if (isPaidTour) {
-          state.selectedForRemoval = new Set(); // clear any stale selection
-          bar.innerHTML = `
-            <div class="max-w-md mx-auto w-full space-y-2">
-                <a
-                  href="${navUrl}"
-                  target="_blank"
-                  class="w-full bg-blue-100 hover:bg-blue-200 text-plaque-blue
-                         font-bold py-3 rounded-xl flex items-center justify-center gap-2
-                         shadow-sm transition-colors"
-                >
-                  ${Icons.MapPin} Start in Google Maps
-                </a>
-                ${previewButtonHtml}
-                <button
-                  onclick="app.saveTour()"
-                  class="w-full bg-green-600 hover:bg-green-700 text-white font-bold
-                         py-3 rounded-xl flex items-center justify-center gap-2
-                         shadow-md transition-colors"
-                >
-                  ${Icons.Heart(true)} Save to Favorites
-                </button>
-            </div>
-        `;
-          return;
+  const count = state.selectedForRemoval.size;
+  const canSwap = state.candidatePlaques.length > state.activeTour.length;
+
+  if (count > 0) {
+    // Some cards are selected → show regenerate / remove controls
+    bar.innerHTML = `
+      <div class="max-w-md mx-auto w-full space-y-2">
+        <button
+          onclick="app.regenerateSelected()"
+          ${!canSwap ? 'disabled' : ''}
+          class="w-full bg-red-600 ${canSwap ? 'animate-bounce-short' : ''} hover:bg-red-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 shadow-md transition-colors disabled:opacity-60"
+        >
+          ${Icons.Refresh} Regenerate ${count} Selected
+        </button>
+        ${
+          !canSwap
+            ? '<p class="text-xs text-red-500 text-center">No alternative places of interest nearby to swap in.</p>'
+            : ''
         }
-
-        const count = state.selectedForRemoval.size;
-        const canSwap = state.candidatePlaques.length > state.activeTour.length;
-
-        if (count > 0) {
-          // Some cards are selected → show regenerate / remove controls
-          bar.innerHTML = `
-            <div class="max-w-md mx-auto w-full space-y-2">
-                <button
-                    onclick="app.regenerateSelected()"
-                    ${!canSwap ? 'disabled' : ''}
-                    class="w-full bg-red-600 ${canSwap ? 'animate-bounce-short' : ''} hover:bg-red-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 shadow-md transition-colors disabled:opacity-60"
-                >
-                    ${Icons.Refresh} Regenerate ${count} Selected
-                </button>
-                ${!canSwap ? '<p class="text-xs text-red-500 text-center">No alternative places of interest nearby to swap in.</p>' : ''}
-                <button
-                    onclick="app.removeSelectedNoReplacement()"
-                    class="w-full bg-white border border-red-500 text-red-600 font-bold py-3 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors"
-                >
-                    ${Icons.Trash} Remove Selected from Tour
-                </button>
-            </div>
-        `;
-        } else {
-          // No cards selected – map + save controls
-          const navUrl = Geo.generateMapsNavUrl(state.activeTour);
-          const previewUrl = isManualPlanningContext
-            ? Geo.generateMapsPreviewUrl(state.activeTour)
-            : null;
-
-          const previewButtonHtml = previewUrl
-            ? `
-                <a
-                    href="${previewUrl}"
-                    target="_blank"
-                    class="w-full bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-bold py-3 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors"
-                >
-                    ${Icons.MapPin} Preview route near planned start
-                </a>
-            `
-            : '';
-
-          bar.innerHTML = `
-            <div class="max-w-md mx-auto w-full space-y-2">
-                <a
-                    href="${navUrl}"
-                    target="_blank"
-                    class="w-full bg-blue-100 hover:bg-blue-200 text-plaque-blue font-bold py-3 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors"
-                >
-                    ${Icons.MapPin} Start in Google Maps
-                </a>
-                ${previewButtonHtml}
-                <button
-                    onclick="app.saveTour()"
-                    class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 shadow-md transition-colors"
-                >
-                    ${Icons.Heart(true)} Save to Favorites
-                </button>
-            </div>
-        `;
-        }
-      },
+        <button
+          onclick="app.removeSelectedNoReplacement()"
+          class="w-full bg-white border border-red-500 text-red-600 font-bold py-3 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors"
+        >
+          ${Icons.Trash} Remove Selected from Tour
+        </button>
+      </div>
+    `;
+  } else {
+    // No cards selected – map + save controls, still using navStops
+    bar.innerHTML = `
+      <div class="max-w-md mx-auto w-full space-y-2">
+        <a
+          href="${navUrl}"
+          target="_blank"
+          class="w-full bg-blue-100 hover:bg-blue-200 text-plaque-blue font-bold py-3 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors"
+        >
+          ${Icons.MapPin} Start in Google Maps
+        </a>
+        ${previewButtonHtml}
+        <button
+          onclick="app.saveTour()"
+          class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 shadow-md transition-colors"
+        >
+          ${Icons.Heart(true)} Save to Favorites
+        </button>
+      </div>
+    `;
+  }
+},
 
       render: () => {
         const root = document.getElementById('app');
