@@ -109,6 +109,7 @@
     const STORAGE_KEY = 'collections_saved_tours';
     const MAX_TOUR_SIZE = 10;
     const AUDIO_UNLOCK_DISTANCE = 0.02; // ~30 metres in miles
+    const ARRIVAL_DISTANCE_MILES = 0.003;
     const PRICE_BASE = 1.99;       // £ base
     const PRICE_PER_STOP = 0.50;   // £ per stop
 
@@ -633,10 +634,34 @@
         app.render();
       },
       goToPaidTour: () => {
-        app.markTourPaidAndSave();   // NEW
-        state.view = 'TOUR';
-        app.render();
-      },
+  app.markTourPaidAndSave();
+  state.view = 'INFO';   // new info/safety screen
+  app.render();
+},
+
+      startTourAndOpenMaps: () => {
+  if (!state.activeTour || !state.activeTour.length) return;
+
+  if (!state.unlockedStops) state.unlockedStops = new Set();
+  if (!state.nearPromptedStopId) state.nearPromptedStopId = null;
+  if (!state.arrivalPromptedStopId) state.arrivalPromptedStopId = null;
+
+  const remainingStops = app.getRemainingStops();
+  const navStops = remainingStops.length ? remainingStops : state.activeTour;
+
+  const navUrl = Geo.generateMapsNavUrl(navStops);
+
+  // Turn on auto guide
+  state.isAutoPlay = true;
+  app.startAudioWatch();
+
+  // Open Maps – user will still need to tap Start in Google Maps itself
+  window.open(navUrl, '_blank');
+
+  state.view = 'TOUR';
+  app.render();
+},
+
       markTourPaidAndSave: () => {
         if (!state.activeTour.length) return;
 
@@ -878,105 +903,111 @@
         app.render();
       },
 
-      // ------------------
-      // AUDIO LOGIC
-      // ------------------
-      speak: async (plaqueId) => {
-        const plaque = state.activeTour.find(p => p.id === plaqueId);
-        if (!plaque) return;
+// ------------------
+// AUDIO LOGIC
+// ------------------
+speak: async (plaqueId) => {
+  const plaque = state.activeTour.find(p => p.id === plaqueId);
+  if (!plaque) return;
 
-        if (!('speechSynthesis' in window)) {
-          alert('Spoken audio is not supported on this device/browser.');
-          return;
-        }
+  if (!('speechSynthesis' in window)) {
+    alert('Spoken audio is not supported on this device/browser.');
+    return;
+  }
 
-        // --- Location gate: stop couch-surfing ---
-        let loc;
-        try {
-          // Fresh position each time you try to listen
-          loc = await Geo.getCurrentPosition();
-          state.userLocation = loc;
-        } catch (err) {
-          alert(
-            "To hear this stop, you'll need to allow location access on your device " +
-            "and listen while you’re actually at the stop."
-          );
-          return;
-        }
+  // Ensure the unlocked set exists
+  if (!state.unlockedStops) {
+    state.unlockedStops = new Set();
+  }
 
-        const hasCoords =
-          Number.isFinite(plaque.latitude) && Number.isFinite(plaque.longitude);
+  // --- Location gate: stop couch-surfing ---
+  // Only enforce GPS / distance if this stop has NOT yet been unlocked.
+  if (!state.unlockedStops.has(plaqueId)) {
+    let loc;
+    try {
+      // Fresh position each time
+      loc = await Geo.getCurrentPosition();
+      state.userLocation = loc;
+    } catch (err) {
+      alert(
+        "To hear this stop, you'll need to allow location access on your device " +
+        "and listen while you’re actually at the stop."
+      );
+      return;
+    }
 
-        if (hasCoords) {
-          const dist = Geo.calculateDistance(
-            loc.latitude,
-            loc.longitude,
-            plaque.latitude,
-            plaque.longitude
-          );
+    const hasCoords =
+      Number.isFinite(plaque.latitude) && Number.isFinite(plaque.longitude);
 
-          if (dist > AUDIO_UNLOCK_DISTANCE) {
-            alert(
-              "Sorry, this audio can only be played when you're at this stop on foot.\n\n" +
-              "Walk to the stop, then try again."
-            );
-            return;
-          }
-        }
+    if (hasCoords) {
+      const dist = Geo.calculateDistance(
+        loc.latitude,
+        loc.longitude,
+        plaque.latitude,
+        plaque.longitude
+      );
 
-        // We’re close enough – mark this stop as unlocked for the rest of the walk
-        state.unlockedStops.add(plaqueId);
+      if (dist > AUDIO_UNLOCK_DISTANCE) {
+        alert(
+          "Sorry, this audio can only be played when you're at this stop on foot.\n\n" +
+          "Walk to the stop, then try again."
+        );
+        return;
+      }
+    }
 
-        // --- Actual speech logic (unchanged) ---
-        // Stop anything currently speaking first
-        window.speechSynthesis.cancel();
+    // You’re close enough – mark as unlocked from now on
+    state.unlockedStops.add(plaqueId);
+  }
 
-        const baseText = `${plaque.title}. ${plaque.bio || plaque.summary || ''}`;
-        const text = baseText.trim();
-        if (!text) {
-          alert('No description available to read for this place of interest.');
-          return;
-        }
+  // --- Actual speech logic ---
+  window.speechSynthesis.cancel();
 
-        const utterance = new SpeechSynthesisUtterance(text);
+  const baseText = `${plaque.title}. ${plaque.bio || plaque.summary || ''}`;
+  const text = baseText.trim();
+  if (!text) {
+    alert('No description available to read for this place of interest.');
+    return;
+  }
 
-        // Prefer our chosen English female / UK voice if available
-        if (preferredVoice) {
-          utterance.voice = preferredVoice;
-          utterance.lang = preferredVoice.lang || 'en-GB';
-        } else {
-          utterance.lang = 'en-GB';
-        }
+  const utterance = new SpeechSynthesisUtterance(text);
 
-        // Slightly slower / warmer delivery
-        utterance.rate = 0.95;
-        utterance.pitch = 1.0;
-        utterance.volume = 1.0;
+  if (preferredVoice) {
+    utterance.voice = preferredVoice;
+    utterance.lang = preferredVoice.lang || 'en-GB';
+  } else {
+    utterance.lang = 'en-GB';
+  }
 
-        utterance.onstart = () => {
-          state.currentSpeechPlaqueId = plaqueId;
-          state.isSpeechPlaying = true;
-          state.isSpeechPaused = false;
-          app.render();
-        };
+  utterance.rate = 0.95;
+  utterance.pitch = 1.0;
+  utterance.volume = 1.0;
 
-        utterance.onend = () => {
-          state.isSpeechPlaying = false;
-          state.isSpeechPaused = false;
-          state.currentSpeechPlaqueId = null;
-          app.render();
-        };
+  utterance.onstart = () => {
+    state.currentSpeechPlaqueId = plaqueId;
+    state.isSpeechPlaying = true;
+    state.isSpeechPaused = false;
+    app.render();
+  };
 
-        utterance.onerror = (e) => {
-          console.error('Speech error', e);
-          state.isSpeechPlaying = false;
-          state.isSpeechPaused = false;
-          state.currentSpeechPlaqueId = null;
-          app.render();
-        };
+  utterance.onend = () => {
+    state.isSpeechPlaying = false;
+    state.isSpeechPaused = false;
+    state.currentSpeechPlaqueId = null;
+    app.render();
+  };
 
-        window.speechSynthesis.speak(utterance);
-      },
+  utterance.onerror = (e) => {
+    console.error('Speech error', e);
+    state.isSpeechPlaying = false;
+    state.isSpeechPaused = false;
+    state.currentSpeechPlaqueId = null;
+    app.render();
+  };
+
+  window.speechSynthesis.speak(utterance);
+},
+
 
 
       pauseSpeech: () => {
@@ -1012,65 +1043,82 @@
       },
 
       startAudioWatch: () => {
-        if (!navigator.geolocation) return;
+  if (!navigator.geolocation) return;
 
+  app.stopAudioWatch();
+
+  if (!state.unlockedStops) state.unlockedStops = new Set();
+  if (!state.nearPromptedStopId) state.nearPromptedStopId = null;
+  if (!state.arrivalPromptedStopId) state.arrivalPromptedStopId = null;
+
+  state.watchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      const uLat = pos.coords.latitude;
+      const uLng = pos.coords.longitude;
+      state.userLocation = { latitude: uLat, longitude: uLng };
+
+      if (!state.activeTour.length) return;
+
+      const nextIndex = state.activeTour.findIndex(
+        (p) => !state.unlockedStops.has(p.id)
+      );
+
+      if (nextIndex === -1) {
         app.stopAudioWatch();
+        return;
+      }
 
-        state.watchId = navigator.geolocation.watchPosition(
-          (pos) => {
-            const uLat = pos.coords.latitude;
-            const uLng = pos.coords.longitude;
-            state.userLocation = { latitude: uLat, longitude: uLng };
+      state.currentStopIndex = nextIndex;
+      const nextStop = state.activeTour[nextIndex];
 
-            if (!state.activeTour.length) return;
+      if (
+        !Number.isFinite(nextStop.latitude) ||
+        !Number.isFinite(nextStop.longitude)
+      ) {
+        return;
+      }
 
-            // Next stop in order that we haven’t unlocked yet
-            const nextIndex = state.activeTour.findIndex(
-              (p) => !state.unlockedStops.has(p.id)
-            );
+      const dist = Geo.calculateDistance(
+        uLat,
+        uLng,
+        nextStop.latitude,
+        nextStop.longitude
+      );
 
-            if (nextIndex === -1) {
-              // All stops unlocked – nothing more to do
-              app.stopAudioWatch();
-              return;
-            }
+      // 1) "You’re here" cue – very close (~5m)
+      if (dist <= ARRIVAL_DISTANCE_MILES) {
+        state.unlockedStops.add(nextStop.id);
+        state.nearlyThereStopId = nextStop.id;
 
-            state.currentStopIndex = nextIndex;
-            const nextStop = state.activeTour[nextIndex];
+        if (state.arrivalPromptedStopId !== nextStop.id) {
+          state.arrivalPromptedStopId = nextStop.id;
+          app.playArrivalPrompt(nextStop);
+        }
 
-            if (
-              !Number.isFinite(nextStop.latitude) ||
-              !Number.isFinite(nextStop.longitude)
-            ) {
-              return;
-            }
+        app.render();
+        return; // don’t also fire the "approaching" cue this tick
+      }
 
-            const dist = Geo.calculateDistance(
-              uLat,
-              uLng,
-              nextStop.latitude,
-              nextStop.longitude
-            );
+      // 2) "You’re approaching" cue – within main unlock radius
+      if (
+        dist <= AUDIO_UNLOCK_DISTANCE &&
+        !state.unlockedStops.has(nextStop.id)
+      ) {
+        state.unlockedStops.add(nextStop.id);
+        state.nearlyThereStopId = nextStop.id;
 
-            if (
-              dist <= AUDIO_UNLOCK_DISTANCE &&
-              !state.unlockedStops.has(nextStop.id)
-            ) {
-              // Unlock and show “you’re almost there”
-              state.unlockedStops.add(nextStop.id);
-              state.nearlyThereStopId = nextStop.id;
+        if (state.nearPromptedStopId !== nextStop.id) {
+          state.nearPromptedStopId = nextStop.id;
+          app.playNearStopPrompt(nextStop);
+        }
 
-              // Optional spoken nudge, but don’t interrupt a story if it’s already playing
-              app.playNearStopPrompt(nextStop);
-
-              app.render();
-            }
-          },
-          (err) => console.error(err),
-          { enableHighAccuracy: true }
-        );
-      },
-
+        app.render();
+      }
+    },
+    (err) => console.error(err),
+    { enableHighAccuracy: true }
+  );
+},
 
       stopAudioWatch: () => {
         if (state.watchId !== null) {
@@ -1080,30 +1128,62 @@
       },
 
       // Short spoken “you’re nearly there” nudge
-      playNearStopPrompt: (plaque) => {
-        if (!('speechSynthesis' in window)) return;
-        if (state.isSpeechPlaying) return; // don’t talk over a story
+      // Short spoken “you’re nearly there” nudge
+playNearStopPrompt: (plaque) => {
+  if (!('speechSynthesis' in window)) return;
+  if (state.isSpeechPlaying) return;
 
-        try {
-          const text = `You are almost at your next stop, ${plaque.title}. 
-                    Once you arrive, open Curated Tours and tap Continue to hear the story.`;
+  try {
+    const text = `
+      You are approaching your next stop, ${plaque.title}.
+      Slow down and get yourself into position in front of the building.
+    `;
 
-          const u = new SpeechSynthesisUtterance(text.trim());
-          if (preferredVoice) {
-            u.voice = preferredVoice;
-            u.lang = preferredVoice.lang || 'en-GB';
-          } else {
-            u.lang = 'en-GB';
-          }
-          u.rate = 1.0;
-          u.pitch = 1.0;
-          u.volume = 0.9;
+    const u = new SpeechSynthesisUtterance(text.trim());
+    if (preferredVoice) {
+      u.voice = preferredVoice;
+      u.lang = preferredVoice.lang || 'en-GB';
+    } else {
+      u.lang = 'en-GB';
+    }
+    u.rate = 1.0;
+    u.pitch = 1.0;
+    u.volume = 0.9;
 
-          window.speechSynthesis.speak(u);
-        } catch (e) {
-          console.warn('Near-stop prompt failed', e);
-        }
-      },
+    window.speechSynthesis.speak(u);
+  } catch (e) {
+    console.warn('Near-stop prompt failed', e);
+  }
+},
+
+      // Short spoken “you've arrived” nudge (very close)
+playArrivalPrompt: (plaque) => {
+  if (!('speechSynthesis' in window)) return;
+  if (state.isSpeechPlaying) return;
+
+  try {
+    const text = `
+      You are now at ${plaque.title}.
+      When it’s safe to do so, switch back to Curated Tours and tap Listen to hear the story.
+    `;
+
+    const u = new SpeechSynthesisUtterance(text.trim());
+    if (preferredVoice) {
+      u.voice = preferredVoice;
+      u.lang = preferredVoice.lang || 'en-GB';
+    } else {
+      u.lang = 'en-GB';
+    }
+    u.rate = 1.0;
+    u.pitch = 1.0;
+    u.volume = 0.9;
+
+    window.speechSynthesis.speak(u);
+  } catch (e) {
+    console.warn('Arrival prompt failed', e);
+  }
+},
+
 
             continueFromStop: (plaqueId) => {
                 if (!state.activeTour || !state.activeTour.length) return;
@@ -1611,52 +1691,124 @@ updateActionBar: () => {
 },
 
       render: () => {
-        const root = document.getElementById('app');
-        let html = '';
-        if (state.toast) {
-        html += `
-        <div class="fixed top-16 left-0 right-0 z-40 flex justify-center pointer-events-none">
-            <div class="bg-gray-900 text-white text-xs px-3 py-2 rounded-full shadow-md pointer-events-auto">
-                ${state.toast}
-            </div>
-        </div>`;
-    }
+  const root = document.getElementById('app');
+  let html = '';
 
-        if (state.error) {
-          html += `
-        <div class="mb-6 mt-4 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
-            <div class="flex">
-                <div class="ml-3">
-                    <p class="text-sm text-red-700">${state.error}</p>
-                </div>
-            </div>
-        </div>`;
-        }
+  if (state.toast) {
+    html += `
+      <div class="fixed top-16 left-0 right-0 z-40 flex justify-center pointer-events-none">
+        <div class="bg-gray-900 text-white text-xs px-3 py-2 rounded-full shadow-md pointer-events-auto">
+          ${state.toast}
+        </div>
+      </div>`;
+  }
 
-        if (state.view === 'HOME') {
-          html += app.renderHome();
-        } else if (state.view === 'PREVIEW') {
-          html += app.renderPreview();
-        } else if (state.view === 'TOUR') {
-          html += app.renderTour();
-        } else if (state.view === 'FAVORITES') {
-          html += app.renderFavorites();
-        } else if (state.view === 'GUIDE') {
-          html += app.renderGuide();
-        } else if (state.view === 'COLOURS') {
-          html += app.renderColours();
-        }
+  if (state.error) {
+    html += `
+      <div class="mb-6 mt-4 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
+        <div class="flex">
+          <div class="ml-3">
+            <p class="text-sm text-red-700">${state.error}</p>
+          </div>
+        </div>
+      </div>`;
+  }
 
-        root.innerHTML = html;
+  if (state.view === 'HOME') {
+    html += app.renderHome();
+  } else if (state.view === 'PREVIEW') {
+    html += app.renderPreview();
+  } else if (state.view === 'INFO') {
+    html += app.renderStartInfo();
+  } else if (state.view === 'TOUR') {
+    html += app.renderTour();
+  } else if (state.view === 'FAVORITES') {
+    html += app.renderFavorites();
+  } else if (state.view === 'GUIDE') {
+    html += app.renderGuide();
+  } else if (state.view === 'COLOURS') {
+    html += app.renderColours();
+  }
 
-        if (state.view === 'TOUR') {
-          // Ensure Maps + Save action bar is rendered
-          app.updateActionBar();
-        }
+  root.innerHTML = html;
 
-        // Always refresh bottom navigation
-        app.renderNav();
-      },
+  if (state.view === 'TOUR') {
+    // Ensure Maps + Save action bar is rendered
+    app.updateActionBar();
+  }
+
+  // Always refresh bottom navigation
+  app.renderNav();
+},
+
+      renderStartInfo: () => {
+  const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
+  const stopCount = state.activeTour ? state.activeTour.length : 0;
+
+  return `
+    <div class="pb-24">
+      <div class="max-w-md mx-auto bg-white rounded-2xl shadow-xl border border-gray-100 p-6 space-y-4 mt-4">
+        <h1 class="text-xl font-extrabold text-gray-900 mb-1">
+          Before you start your Curated Tour
+        </h1>
+        <p class="text-xs text-gray-500 tracking-wide uppercase mb-2">
+          ${cityName} · ${stopCount} stops
+        </p>
+
+        <p class="text-sm text-gray-700">
+          This is an <span class="font-semibold">audio walking tour</span>. To get the most from it:
+        </p>
+
+        <ul class="list-disc list-inside space-y-1 text-sm text-gray-700">
+          <li>
+            Make sure your phone isn’t muted and your volume is set to a comfortable level.
+          </li>
+          <li>
+            In busy areas, <span class="font-semibold">earbuds or headphones</span> help – but always stay
+            aware of traffic and your surroundings.
+          </li>
+          <li>
+            Your tour has been loaded into <span class="font-semibold">Google Maps</span>, which will guide
+            you close to each stop. Use Maps to walk there, then switch back to Curated Tours once you’ve arrived.
+          </li>
+          <li>
+            Check the card in Curated Tours to confirm the <span class="font-semibold">address and description</span>
+            of the building or site you should be looking at.
+          </li>
+          <li>
+            Curated Tours will give on-foot <span class="font-semibold">audio cues</span>:
+            one as you approach, and another when you are right outside the stop.
+          </li>
+          <li>
+            Some stops may be <span class="font-semibold">private homes or workplaces</span>. Please be respectful –
+            often viewing from the opposite pavement is better than standing in a doorway.
+          </li>
+          <li>
+            After each story, tap <span class="font-semibold">“Continue to next stop”</span>.
+            If you need to skip a stop, use <span class="font-semibold">“Skip this stop / continue to next”</span>.
+            Your Google Maps route will be regenerated from where you are to the next stop.
+          </li>
+        </ul>
+
+        <div class="pt-2">
+          <button
+            onclick="app.startTourAndOpenMaps()"
+            class="w-full bg-plaque-blue hover:bg-blue-900 text-white font-bold py-3 rounded-xl shadow-md transition-colors flex items-center justify-center gap-2"
+          >
+            Got it – let’s go!
+          </button>
+
+          <button
+            onclick="app.goHome()"
+            class="w-full text-xs text-gray-500 mt-3 hover:underline text-center"
+          >
+            Cancel and start again
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+},
 
       renderNav: () => {
         const nav = document.getElementById('bottom-nav');
@@ -1819,27 +1971,22 @@ updateActionBar: () => {
         const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
         const stopCount = state.activeTour.length;
         const radius = state.radius;
-
         const distanceMiles = state.tourDistanceMiles || 0;
         const distanceStr = distanceMiles < 0.1
           ? '< 0.1'
           : distanceMiles.toFixed(1);
-
         const totalMinutes = state.tourTotalMinutes || 0;
         const hours = Math.floor(totalMinutes / 60);
         const mins = totalMinutes % 60;
         const timeStr = hours
           ? `${hours} hr ${mins} min`
           : `${mins} min`;
-
         const startLabel = state.isPlanned
           ? (state.startHint || 'the suggested starting area')
           : 'your current location';
-
         const alphaStops = [...state.activeTour]
           .slice()
           .sort((a, b) => (a.title || '').localeCompare(b.title || ''));
-
         const hasMarkedForReplace = state.planningMarkedForReplace.size > 0;
 
         return `
@@ -1961,117 +2108,157 @@ updateActionBar: () => {
         </div>
 
         <!-- Actions -->
-        <div class="mt-5 space-y-2">
-          <button
-            onclick="app.goToPaidTour()"
-            class="w-full bg-plaque-blue hover:bg-blue-900 text-white font-bold py-3 rounded-xl shadow-md transition-colors flex items-center justify-center gap-2"
-          >
-            Make payment &amp; unlock full tour
-          </button>
+<div class="mt-5 space-y-2">
+  <button
+    onclick="app.goToPaidTour()"
+    class="w-full bg-plaque-blue hover:bg-blue-900 text-white font-bold py-3 rounded-xl shadow-md transition-colors flex items-center justify-center gap-2"
+  >
+    Let’s get going
+  </button>
 
-          <button
-            onclick="app.saveTour()"
-            class="w-full bg-white border border-gray-300 text-gray-800 font-semibold py-3 rounded-xl shadow-sm transition-colors hover:bg-gray-50 flex items-center justify-center gap-2"
-          >
-            ${Icons.Heart(false)}
-            Save this Curated Tour for later
-          </button>
+  <button
+    onclick="app.saveTour()"
+    class="w-full bg-white border border-gray-300 text-gray-800 font-semibold py-3 rounded-xl shadow-sm transition-colors hover:bg-gray-50 flex items-center justify-center gap-2"
+  >
+    ${Icons.Heart(false)}
+    Save this Curated Tour for later
+  </button>
 
-          <button
-            onclick="app.goHome()"
-            class="w-full text-xs text-gray-500 mt-1 hover:underline"
-          >
-            Start a different search
-          </button>
-        </div>
-
+  <button
+    onclick="app.goHome()"
+    class="w-full text-xs text-gray-500 mt-1 hover:underline"
+  >
+    Cancel and start again
+  </button>
+</div>
       </div>
     </div>
   `;
       },
 
-      renderNearStopBanner: () => {
-        if (!state.nearlyThereStopId) return '';
+     renderNearStopBanner: () => {
+  if (!state.nearlyThereStopId) return '';
 
-        const plaque = state.activeTour.find(
-          (p) => p.id === state.nearlyThereStopId
-        );
-        if (!plaque) return '';
+  const plaque = state.activeTour.find(
+    (p) => p.id === state.nearlyThereStopId
+  );
+  if (!plaque) return '';
 
-        return `
-                  <div class="mb-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg p-3 text-xs text-gray-800">
-                    <p class="font-semibold mb-1">
-                      You’re almost at: <span class="font-bold">${plaque.title}</span>
-                    </p>
-                    <p class="mb-2">
-                      Once you’re standing outside this stop, tap <strong>Continue</strong> to open its details and listen to the story.
-                    </p>
-                    <button
-                      type="button"
-                      onclick="app.confirmArrivedAtStop('${plaque.id}')"
-                      class="mt-1 inline-flex items-center px-3 py-1.5 rounded-full bg-plaque-blue text-white text-xs font-semibold shadow-sm hover:bg-blue-900 transition-colors"
-                    >
-                      Continue
-                    </button>
-                  </div>
-                `;
-      },
+  return `
+    <div class="fixed inset-x-0 bottom-20 z-30 flex justify-center px-4">
+      <div class="max-w-md w-full bg-yellow-50 border border-yellow-400 rounded-2xl shadow-2xl p-4 max-h-[50vh] overflow-y-auto">
+        <p class="text-xs font-semibold text-yellow-800 uppercase tracking-wide mb-1">
+          Upcoming stop
+        </p>
+        <h2 class="text-lg font-bold text-gray-900 mb-2">
+          ${plaque.title}
+        </h2>
+        <p class="text-sm text-gray-800 mb-2">
+          You’re very close to this stop. Slow down and get yourself into a safe,
+          comfortable position in front of the building.
+        </p>
+        <p class="text-xs text-gray-700 mb-3">
+          Some stops may be private homes or workplaces. Please be respectful –
+          sometimes viewing from the opposite pavement is better than standing
+          directly in someone’s doorway.
+        </p>
+        <button
+          type="button"
+          onclick="app.confirmArrivedAtStop('${plaque.id}')"
+          class="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-full bg-plaque-blue text-white text-sm font-semibold shadow-sm hover:bg-blue-900 transition-colors"
+        >
+          I’m here – show this stop
+        </button>
+      </div>
+    </div>
+  `;
+},
 
       renderTour: () => {
-        const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
-        const startNote = state.isPlanned
-          ? `
-        <div class="mb-4 bg-blue-50 border-l-4 border-plaque-blue p-3 rounded-r-lg text-xs text-gray-800">
-            <p class="font-semibold mb-1">Suggested starting area</p>
-            <p>
-                This tour has been centred on a cluster of places for this collection.
-                Begin your walk near
-                <span class="font-semibold">${state.startHint || 'the suggested starting point'}</span>,
-                then follow the stops in order.
-            </p>
-        </div>
-        `
-          : `
-        <div class="mb-4 bg-green-50 border-l-4 border-green-500 p-3 rounded-r-lg text-xs text-gray-800">
-            <p class="font-semibold mb-1">Start from where you are</p>
-            <p>
-                This tour uses <span class="font-semibold">your current location</span> as the starting point.
-                When you tap <strong>&quot;Start in Google Maps&quot;</strong> below,
-                directions will begin from where you are standing.
-            </p>
-        </div>
-        `;
-        const nearStopBanner = app.renderNearStopBanner();
-        return `
-    <div class="pb-32">
-        <div class="flex items-center justify-between mb-4">
-            <button onclick="app.goHome()" class="flex items-center text-gray-600 hover:text-plaque-blue font-medium transition-colors">
-                ${Icons.ArrowLeft} <span class="ml-1">New Search</span>
-            </button>
-            <div class="text-right">
-                <h2 class="text-lg font-bold text-gray-900">${cityName} Tour</h2>
-                <p class="text-xs text-gray-500">${state.activeTour.length} Locations</p>
-            </div>
-        </div>
+  const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
 
-        ${startNote}
-        ${nearStopBanner}
-        <div class="mb-6 flex justify-end">
-            <button onclick="app.toggleAutoPlay()" class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm border ${state.isAutoPlay ? 'bg-plaque-blue text-white border-plaque-blue' : 'bg-white text-gray-500 border-gray-300'}">
-                ${Icons.SpeakerWave(state.isAutoPlay)} Auto Guide: ${state.isAutoPlay ? 'ON' : 'OFF'}
-            </button>
-        </div>
-
-        <div class="space-y-4">
-            ${state.activeTour.map((p, i) => app.renderCard(p, i, state.activeTour.length)).join('')}
-        </div>
-
-        <div id="action-bar" class="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-[0_-5px_10px_rgba(0,0,0,0.05)] z-10 flex flex-col gap-3">
-            ${/* Filled by updateActionBar after render() */ ''}
-        </div>
-    </div>
+  const startNote = state.isPlanned
+    ? `
+      <div class="mb-4 bg-blue-50 border-l-4 border-plaque-blue p-3 rounded-r-lg text-xs text-gray-800">
+        <p class="font-semibold mb-1">Suggested starting area</p>
+        <p>
+          This tour has been centred on a cluster of places for this collection.
+          Begin your walk near
+          <span class="font-semibold">${state.startHint || 'the suggested starting point'}</span>,
+          then follow the stops in order.
+        </p>
+      </div>
+    `
+    : `
+      <div class="mb-4 bg-green-50 border-l-4 border-green-500 p-3 rounded-r-lg text-xs text-gray-800">
+        <p class="font-semibold mb-1">Start from where you are</p>
+        <p>
+          This tour uses <span class="font-semibold">your current location</span> as the starting point.
+          When you tap <strong>&quot;Start in Google Maps&quot;</strong> below,
+          directions will begin from where you are standing.
+        </p>
+      </div>
     `;
-      },
+
+  const nearStopBanner = app.renderNearStopBanner();
+
+  // NEW: only render the current card
+  const total = state.activeTour.length;
+  let currentCardHtml = '';
+
+  if (!total) {
+    currentCardHtml = `
+      <p class="text-sm text-gray-500">
+        There are no stops on this Curated Tour.
+      </p>
+    `;
+  } else {
+    const idx = app.getCurrentStopIndex();
+    const safeIndex = Math.min(Math.max(idx, 0), total - 1);
+    const plaque = state.activeTour[safeIndex];
+    currentCardHtml = app.renderCard(plaque, safeIndex, total);
+  }
+
+  return `
+    <div class="pb-32">
+      <div class="flex items-center justify-between mb-4">
+        <button onclick="app.goHome()" class="flex items-center text-gray-600 hover:text-plaque-blue font-medium transition-colors">
+          ${Icons.ArrowLeft} <span class="ml-1">New Search</span>
+        </button>
+        <div class="text-right">
+          <h2 class="text-lg font-bold text-gray-900">${cityName} Tour</h2>
+          <p class="text-xs text-gray-500">${state.activeTour.length} Locations</p>
+        </div>
+      </div>
+
+      ${startNote}
+      ${nearStopBanner}
+
+      <div class="mb-6 flex justify-end">
+        <button
+          onclick="app.toggleAutoPlay()"
+          class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm border
+            ${state.isAutoPlay ? 'bg-plaque-blue text-white border-plaque-blue' : 'bg-white text-gray-500 border-gray-300'}"
+        >
+          ${Icons.SpeakerWave(state.isAutoPlay)} Auto Guide: ${state.isAutoPlay ? 'ON' : 'OFF'}
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        ${currentCardHtml}
+      </div>
+
+      <div
+        id="action-bar"
+        class="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 p-4
+               shadow-[0_-5px_10px_rgba(0,0,0,0.05)] z-10 flex flex-col gap-3"
+      >
+        <!-- Filled by updateActionBar after render() -->
+      </div>
+    </div>
+  `;
+},
+
       renderCard: (plaque, index, total) => {
         const isStart = index === 0;
         const isEnd = index === total - 1;
