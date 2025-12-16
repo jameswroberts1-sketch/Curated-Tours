@@ -1229,9 +1229,9 @@ playArrivalPrompt: (plaque) => {
     const navUrl = Geo.generateMapsNavUrl(navStops);
     if (navUrl) window.open(navUrl, '_blank');
   }
-
-  app.render();
-},
+    state.justNavigated = true;
+    app.render();
+  },
 
 skipStop: (plaqueId) => {
   if (!state.activeTour || !state.activeTour.length) return;
@@ -1733,16 +1733,22 @@ updateActionBar: () => {
 
   root.innerHTML = html;
 
-  if (state.view === 'TOUR') {
-    // Ensure Maps + Save action bar is rendered
-    app.updateActionBar();
-  }
+// After a view change, snap to top once
+if (state.justNavigated) {
+  window.scrollTo(0, 0);
+  state.justNavigated = false;
+}
 
-  // Always refresh bottom navigation
-  app.renderNav();
+if (state.view === 'TOUR') {
+  // Ensure Maps + Save action bar is rendered
+  app.updateActionBar();
+}
+
+// Always refresh bottom navigation
+app.renderNav();
 },
 
-      renderStartInfo: () => {
+  renderStartInfo: () => {
   const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
   const stopCount = state.activeTour ? state.activeTour.length : 0;
 
