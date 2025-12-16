@@ -1185,46 +1185,59 @@ playArrivalPrompt: (plaque) => {
 },
 
 
-            continueFromStop: (plaqueId) => {
-                if (!state.activeTour || !state.activeTour.length) return;
+            advanceToNextFromStop: (plaqueId, toastMessage, reopenMaps) => {
+  if (!state.activeTour || !state.activeTour.length) return;
 
-                const idx = state.activeTour.findIndex(p => p.id === plaqueId);
-                if (idx === -1) return;
+  const idx = state.activeTour.findIndex(p => p.id === plaqueId);
+  if (idx === -1) return;
 
-                const isCurrentAudio = state.currentSpeechPlaqueId === plaqueId;
+  const isCurrentAudio = state.currentSpeechPlaqueId === plaqueId;
+  if (isCurrentAudio) {
+    app.stopSpeech();
+  }
 
-                // If this stop is currently playing audio, confirm first
-                if (isCurrentAudio && state.isSpeechPlaying) {
-                    const ok = confirm(
-                        'Are you sure? Continuing to the next stop will stop the audio for this stop.'
-                    );
-                    if (!ok) return;
-                }
+  const nextIndex = idx + 1;
+  let openMaps = reopenMaps;
 
-                // Stop any audio for this stop
-                if (isCurrentAudio) {
-                    app.stopSpeech();
-                }
+  if (nextIndex >= state.activeTour.length) {
+    // No more stops; we've effectively finished the tour
+    state.currentStopIndex = state.activeTour.length;
+    app.showToast('You’ve reached the final stop on this Curated Tour.');
+    openMaps = false; // don’t reopen directions once the tour is done
+  } else {
+    const current = state.currentStopIndex || 0;
+    if (nextIndex > current) {
+      state.currentStopIndex = nextIndex;
+    }
+    if (toastMessage) {
+      app.showToast(toastMessage);
+    }
+  }
 
-                const nextIndex = idx + 1;
+  if (openMaps) {
+    const remainingStops = app.getRemainingStops();
+    const navStops = remainingStops.length ? remainingStops : state.activeTour;
+    const navUrl = Geo.generateMapsNavUrl(navStops);
+    if (navUrl) window.open(navUrl, '_blank');
+  }
 
-                if (nextIndex >= state.activeTour.length) {
-                    // No more stops; we've effectively finished the tour
-                    state.currentStopIndex = state.activeTour.length;
-                    app.showToast('You’ve reached the final stop on this Curated Tour.');
-                } else {
-                    // Advance "next stop" pointer if this moves us forward
-                    const current = state.currentStopIndex || 0;
-                    if (nextIndex > current) {
-                        state.currentStopIndex = nextIndex;
-                    }
-                    app.showToast('Okay, moving on to the next stop.');
-                }
+  app.render();
+},
 
-                // Refresh the Maps link so it points to the remaining stops
-                app.updateActionBar();
-                app.render();
-            },
+skipStop: (plaqueId) => {
+  if (!state.activeTour || !state.activeTour.length) return;
+
+  const ok = confirm(
+    'Skip this stop and move on to the next? I’ll update your walking directions in Google Maps.'
+  );
+  if (!ok) return;
+
+  app.advanceToNextFromStop(plaqueId, 'Skipping this stop.', true);
+},
+
+continueToNext: (plaqueId) => {
+  app.advanceToNextFromStop(plaqueId, 'Okay, moving on to the next stop.', true);
+},
 
       // Logic: Load Collections (and feed autocomplete)
       loadCategories: async () => {
@@ -1268,140 +1281,109 @@ playArrivalPrompt: (plaque) => {
       },
 
       generateTour: async (e) => {
-        if (e) e.preventDefault();
-        state.loading = true;
-        state.error = null;
-        app.render();
+  if (e) e.preventDefault();
+  state.loading = true;
+  state.error = null;
+  app.render();
 
-        const cityCfg = CITIES[state.cityIndex];
+  const cityCfg = CITIES[state.cityIndex];
 
-        try {
-          // 1. Base plaque set: city + collection
-          const all = state.allPlaques && state.allPlaques.length
-            ? state.allPlaques
-            : await Api.fetchPlaques(cityCfg.url);
+  try {
+    // 1. Base plaque set: city + collection
+    const all = state.allPlaques && state.allPlaques.length
+      ? state.allPlaques
+      : await Api.fetchPlaques(cityCfg.url);
 
-          let filtered = all;
+    let filtered = all;
 
-          // City filter
-          if (state.selectedCity) {
-            const cityName = state.selectedCity.toLowerCase();
-            filtered = filtered.filter(p =>
-              p.area && p.area.toLowerCase() === cityName
-            );
-          }
+    // City filter
+    if (state.selectedCity) {
+      const cityName = state.selectedCity.toLowerCase();
+      filtered = filtered.filter(p =>
+        p.area && p.area.toLowerCase() === cityName
+      );
+    }
 
-          // Collection filter
-          if (state.collection) {
-            const col = state.collection.toLowerCase();
-            filtered = filtered.filter(p =>
-              p.category && p.category.toLowerCase() === col
-            );
-          }
+    // Collection filter
+    if (state.collection) {
+      const col = state.collection.toLowerCase();
+      filtered = filtered.filter(p =>
+        p.category && p.category.toLowerCase() === col
+      );
+    }
 
-          if (!filtered.length) {
-            throw new Error('No places of interest found for this city / collection.');
-          }
+    if (!filtered.length) {
+      throw new Error('No places of interest found for this city / collection.');
+    }
 
-          let startLoc;
-          let nearby = [];
+    // ALWAYS: plan mode – find best cluster in the city
+    const { center, members } = Geo.findBestCluster(filtered, state.radius);
 
-          if (state.locationMethod === 'GPS') {
-            // START NOW: centre on the user and keep within radius
-            startLoc = await Geo.getCurrentPosition();
-            state.userLocation = startLoc;
+    if (!center || !members.length) {
+      throw new Error(
+        `No suitable cluster found within ${state.radius} miles for this collection.`
+      );
+    }
 
-            nearby = filtered.filter(p => {
-              const hasCoords =
-                Number.isFinite(p.latitude) && Number.isFinite(p.longitude);
-              if (!hasCoords) return false;
-              const dist = Geo.calculateDistance(
-                startLoc.latitude,
-                startLoc.longitude,
-                p.latitude,
-                p.longitude
-              );
-              return dist <= state.radius;
-            });
+    const startLoc = center;
+    state.userLocation = startLoc;
+    let nearby = members;
+    state.isPlanned = true;
 
-            state.isPlanned = false;
-          } else {
-            // PLAN FOR LATER: find best cluster anywhere in the city
-            const { center, members } = Geo.findBestCluster(filtered, state.radius);
+    if (!nearby.length) {
+      throw new Error(`No places of interest found within ${state.radius} miles.`);
+    }
 
-            if (!center || !members.length) {
-              throw new Error(
-                `No suitable cluster found within ${state.radius} miles for this collection.`
-              );
-            }
+    // 2. Select & optimise tour
+    const shuffled = [...nearby].sort(() => 0.5 - Math.random());
+    let selected = shuffled.slice(0, state.stops);
+    selected = Geo.optimizeRoute(startLoc, selected);
 
-            startLoc = center;
-            state.userLocation = startLoc;
-            nearby = members;
-            state.isPlanned = true;
-          }
+    // 3. Update state for this tour
+    state.candidatePlaques = nearby;
+    state.activeTour = selected;
+    state.selectedForRemoval = new Set();
+    state.playedPlaques = new Set();
+    state.activeTourMeta = {
+      id: null,
+      isPaid: false,
+    };
 
-          if (!nearby.length) {
-            throw new Error(`No places of interest found within ${state.radius} miles.`);
-          }
+    // planning-stage replace flags + navigation state
+    state.planningMarkedForReplace = new Set();
+    state.currentStopIndex = 0;
+    state.unlockedStops = new Set();
+    state.nearlyThereStopId = null;
 
-          // 2. Select & optimise tour
-          const shuffled = [...nearby].sort(() => 0.5 - Math.random());
-          let selected = shuffled.slice(0, state.stops);
-          selected = Geo.optimizeRoute(startLoc, selected);
+    // 4. Compute a friendly startHint
+    try {
+      const suggestedAddress = await Api.reverseGeocode(startLoc);
+      state.startHint = suggestedAddress;
+    } catch (err) {
+      console.warn('Reverse geocoding failed, falling back', err);
+      state.startHint = cityCfg.exampleAddress || state.selectedCity || '';
+    }
 
-          // 3. Update state for this tour
-          state.candidatePlaques = nearby;
-          state.activeTour = selected;
-          state.selectedForRemoval = new Set();
-          state.playedPlaques = new Set();
-          state.activeTourMeta = {
-            id: null,
-            isPaid: false,
-          };
+    // 5. Compute tour stats & price for the preview
+    const stats = Geo.computeTourStats(startLoc, selected);
+    state.tourDistanceMiles = stats.distanceMiles;
+    state.tourWalkMinutes = stats.walkingMinutes;
 
-          // NEW: clear any planning-stage replace flags
-          state.planningMarkedForReplace = new Set();
-          state.currentStopIndex = 0;
+    const dwellMinutes = state.activeTour.length * 5;
+    state.tourTotalMinutes = Math.round(stats.walkingMinutes + dwellMinutes);
 
-          // NEW: reset on-foot navigation state
-          state.unlockedStops = new Set();
-          state.nearlyThereStopId = null;
+    const rawPrice = PRICE_BASE + PRICE_PER_STOP * state.activeTour.length;
+    state.tourPrice = Math.round(rawPrice * 100) / 100;
 
-          // 4. Compute a friendly startHint
-          if (state.isPlanned) {
-            try {
-              const suggestedAddress = await Api.reverseGeocode(startLoc);
-              state.startHint = suggestedAddress;
-            } catch (err) {
-              console.warn('Reverse geocoding failed, falling back', err);
-              state.startHint = cityCfg.exampleAddress || state.selectedCity || '';
-            }
-          } else {
-            state.startHint = 'Your current location';
-          }
-
-          // 5. Compute tour stats & price for the preview
-          const stats = Geo.computeTourStats(startLoc, selected);
-          state.tourDistanceMiles = stats.distanceMiles;
-          state.tourWalkMinutes = stats.walkingMinutes;
-
-          const dwellMinutes = state.activeTour.length * 5;
-          state.tourTotalMinutes = Math.round(stats.walkingMinutes + dwellMinutes);
-
-          const rawPrice = PRICE_BASE + PRICE_PER_STOP * state.activeTour.length;
-          state.tourPrice = Math.round(rawPrice * 100) / 100;
-
-          // 6. Show preview/paywall
-          state.view = 'PREVIEW';
-        } catch (err) {
-          state.error = err.message || 'Error generating tour';
-        } finally {
-          state.loading = false;
-          app.render();
-        }
-      },
-
+    // 6. Show preview/paywall
+    state.view = 'PREVIEW';
+  } catch (err) {
+    state.error = err.message || 'Error generating tour';
+  } finally {
+    state.loading = false;
+    app.render();
+  }
+},
       // Logic: Regenerate (Swap)
       toggleRemove: (id, checked) => {
         // Once a tour is paid, do not allow editing
@@ -1589,6 +1571,14 @@ updateActionBar: () => {
   const isManualPlanningContext =
     state.view === 'TOUR' && state.locationMethod === 'MANUAL';
 
+  // On a PAID live tour, we don’t need extra buttons – Maps is already running,
+  // and the tour has been auto-saved.
+  if (isPaidTour) {
+    state.selectedForRemoval = new Set();
+    bar.innerHTML = '';
+    return;
+  }
+
   // Use only the remaining stops from the current index onwards
   const remainingStops = app.getRemainingStops();
   const navStops = remainingStops.length ? remainingStops : state.activeTour;
@@ -1756,6 +1746,13 @@ updateActionBar: () => {
         </p>
 
         <p class="text-sm text-gray-700">
+          This Curated Tour has already been
+          <span class="font-semibold">saved to your Saved tours</span>.
+          If the app closes or your phone goes to sleep, you can reopen it
+          any time from the <span class="font-semibold">Saved</span> tab.
+        </p>
+
+        <p class="text-sm text-gray-700">
           This is an <span class="font-semibold">audio walking tour</span>. To get the most from it:
         </p>
 
@@ -1768,16 +1765,17 @@ updateActionBar: () => {
             aware of traffic and your surroundings.
           </li>
           <li>
-            Your tour has been loaded into <span class="font-semibold">Google Maps</span>, which will guide
-            you close to each stop. Use Maps to walk there, then switch back to Curated Tours once you’ve arrived.
+            Your tour will open in <span class="font-semibold">Google Maps</span>. Use Maps to walk towards
+            each stop, then switch back to Curated Tours once you’ve arrived.
           </li>
           <li>
             Check the card in Curated Tours to confirm the <span class="font-semibold">address and description</span>
             of the building or site you should be looking at.
           </li>
           <li>
-            Curated Tours will give on-foot <span class="font-semibold">audio cues</span>:
-            one as you approach, and another when you are right outside the stop.
+            Curated Tours will give on-foot <span class="font-semibold">audio cues</span> as you approach each stop
+            and again when you are right outside. This happens automatically in the background
+            while your tour is running.
           </li>
           <li>
             Some stops may be <span class="font-semibold">private homes or workplaces</span>. Please be respectful –
@@ -1785,8 +1783,8 @@ updateActionBar: () => {
           </li>
           <li>
             After each story, tap <span class="font-semibold">“Continue to next stop”</span>.
-            If you need to skip a stop, use <span class="font-semibold">“Skip this stop / continue to next”</span>.
-            Your Google Maps route will be regenerated from where you are to the next stop.
+            If you need to miss a stop, use <span class="font-semibold">“Skip this stop”</span>.
+            In both cases I’ll regenerate your walking directions in Google Maps to the next stop.
           </li>
         </ul>
 
@@ -1849,123 +1847,103 @@ updateActionBar: () => {
       },
 
       renderHome: () => {
-        return `
+  return `
     <div class="w-full max-w-md mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 mt-0">
-        <form onsubmit="app.generateTour(event)" class="p-6 space-y-6">
-            <!-- 1. City -->
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">Select City</label>
-              <select
-                 onchange="app.setCityFilter(this.value)"
-                 class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plaque-blue bg-white"
-              >
-                  ${state.availableCities.length
-            ? state.availableCities
-              .map(city => `<option value="${city}" ${city === state.selectedCity ? 'selected' : ''}>${city}</option>`)
-              .join('')
-            : '<option disabled>Loading cities…</option>'
-          }
-              </select>
-            </div>
+      <form onsubmit="app.generateTour(event)" class="p-6 space-y-6">
 
-            <!-- 2. Collection for that city -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Select Collection (Category / Role)
-                </label>
-                <select
-                    onchange="app.setCollection(this.value)"
-                    class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plaque-blue bg-white"
-                >
-                    ${state.availableCollections.length
-            ? state.availableCollections
-              .map(c => `<option value="${c}" ${c === state.collection ? 'selected' : ''}>${c}</option>`)
-              .join('')
-            : '<option disabled>Select a city first…</option>'
-          }
-                </select>
-            </div>
+        <!-- 1. City -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Select City</label>
+          <select
+            onchange="app.setCityFilter(this.value)"
+            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plaque-blue bg-white"
+          >
+            ${
+              state.availableCities.length
+                ? state.availableCities
+                    .map(city => `<option value="${city}" ${city === state.selectedCity ? 'selected' : ''}>${city}</option>`)
+                    .join('')
+                : '<option disabled>Loading cities…</option>'
+            }
+          </select>
+        </div>
 
-            <!-- 3. Walking mode -->
-<div>
-    <label class="block text-sm font-medium text-gray-700 mb-2">
-        When are you walking?
-    </label>
-    <div class="flex gap-2 mb-2">
+        <!-- 2. Collection for that city -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">
+            Select Collection (Category / Role)
+          </label>
+          <select
+            onchange="app.setCollection(this.value)"
+            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-plaque-blue bg-white"
+          >
+            ${
+              state.availableCollections.length
+                ? state.availableCollections
+                    .map(c => `<option value="${c}" ${c === state.collection ? 'selected' : ''}>${c}</option>`)
+                    .join('')
+                : '<option disabled>Select a city first…</option>'
+            }
+          </select>
+        </div>
+
+        <!-- 3. Radius / stops sliders -->
+        <div class="flex gap-4">
+          <div class="flex-1">
+            <div class="flex justify-between items-center mb-2">
+              <label class="text-sm font-medium text-gray-700">Radius</label>
+              <span id="radius-val" class="text-sm font-bold text-plaque-blue">${state.radius} mi</span>
+            </div>
+            <input
+              type="range"
+              min="0.2"
+              max="5"
+              step="0.1"
+              value="${state.radius}"
+              oninput="app.setRadius(this.value)"
+              class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-plaque-blue"
+            >
+          </div>
+          <div class="flex-1">
+            <div class="flex justify-between items-center mb-2">
+              <label class="text-sm font-medium text-gray-700">Stops</label>
+              <span id="stops-val" class="text-sm font-bold text-plaque-blue">${state.stops}</span>
+            </div>
+            <input
+              type="range"
+              min="1"
+              max="${MAX_TOUR_SIZE}"
+              step="1"
+              value="${state.stops}"
+              oninput="app.setStops(this.value)"
+              class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-plaque-blue"
+            >
+          </div>
+        </div>
+
+        <!-- 4. Generate -->
         <button
-            type="button"
-            onclick="app.setMethod('GPS')"
-            class="flex-1 py-2 px-3 text-xs font-medium rounded-2xl transition-all shadow-sm ${state.locationMethod === 'GPS'
-            ? 'bg-plaque-blue text-white'
-            : 'bg-red-600 text-white'
-          }"
+          type="submit"
+          ${state.loading ? 'disabled' : ''}
+          class="w-full bg-plaque-blue hover:bg-blue-900 text-white font-bold py-4 rounded-xl shadow-lg transition disabled:opacity-70 flex justify-center items-center"
         >
-            <span class="block text-sm font-semibold leading-tight">
-                Start now
-            </span>
-            <span class="block text-[0.7rem] leading-tight opacity-80">
-                Use my current location
-            </span>
+          ${state.loading ? 'Planning your tour…' : 'Begin planning your Curated Tour'}
         </button>
 
-        <button
-            type="button"
-            onclick="app.setMethod('MANUAL')"
-            class="flex-1 py-2 px-3 text-xs font-medium rounded-2xl transition-all shadow-sm ${state.locationMethod === 'MANUAL'
-            ? 'bg-plaque-blue text-white'
-            : 'bg-red-600 text-white'
-          }"
-        >
-            <span class="block text-sm font-semibold leading-tight">
-                Plan for later
-            </span>
-            <span class="block text-[0.7rem] leading-tight opacity-80">
-                Suggest a good starting area
-            </span>
-        </button>
+        <p class="mt-2 text-xs text-gray-500 text-center">
+          I’ll build a walkable route for this city and collection. You can
+          <span class="font-semibold">start it straight away</span> or
+          <span class="font-semibold">save it to your Saved tours</span>
+          to use later.
+        </p>
+      </form>
     </div>
 
-    ${state.locationMethod === 'GPS'
-            ? `<p class="mt-1 text-xs text-gray-500">
-                    Ideal when you’re already out in the city.
-                    We’ll build a walk starting from where you are now.
-               </p>`
-            : `<p class="mt-1 text-xs text-gray-500">
-                    Perfect for planning ahead. We’ll find a tight cluster of
-                    places for this collection in your chosen city and
-                    suggest a clear starting area.
-               </p>`
-          }
-</div>
-            <!-- 4. Radius / stops sliders -->
-            <div class="flex gap-4">
-                <div class="flex-1">
-                    <div class="flex justify-between items-center mb-2">
-                        <label class="text-sm font-medium text-gray-700">Radius</label>
-                        <span id="radius-val" class="text-sm font-bold text-plaque-blue">${state.radius} mi</span>
-                    </div>
-                    <input type="range" min="0.2" max="5" step="0.1" value="${state.radius}" oninput="app.setRadius(this.value)" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-plaque-blue">
-                </div>
-                <div class="flex-1">
-                    <div class="flex justify-between items-center mb-2">
-                        <label class="text-sm font-medium text-gray-700">Stops</label>
-                        <span id="stops-val" class="text-sm font-bold text-plaque-blue">${state.stops}</span>
-                    </div>
-                    <input type="range" min="1" max="${MAX_TOUR_SIZE}" step="1" value="${state.stops}" oninput="app.setStops(this.value)" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-plaque-blue">
-                </div>
-            </div>
-
-            <!-- 5. Generate -->
-            <button type="submit" ${state.loading ? 'disabled' : ''} class="w-full bg-plaque-blue hover:bg-blue-900 text-white font-bold py-4 rounded-xl shadow-lg transition disabled:opacity-70 flex justify-center items-center">
-                ${state.loading ? 'Generating...' : 'Generate Walking Tour'}
-            </button>
-        </form>
-    </div>
     <div class="mt-8 text-center text-gray-400 text-sm">
-        <p>Discover historical markers in London and beyond.</p>
+      <p>Discover historical markers in London and beyond.</p>
     </div>
-    `;
-      },
+  `;
+},
 
       renderPreview: () => {
         const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
@@ -2176,9 +2154,11 @@ updateActionBar: () => {
 
       renderTour: () => {
   const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
+  const isPaidTour = !!(state.activeTourMeta && state.activeTourMeta.isPaid);
 
-  const startNote = state.isPlanned
-    ? `
+  const startNote =
+    !isPaidTour && state.isPlanned
+      ? `
       <div class="mb-4 bg-blue-50 border-l-4 border-plaque-blue p-3 rounded-r-lg text-xs text-gray-800">
         <p class="font-semibold mb-1">Suggested starting area</p>
         <p>
@@ -2189,20 +2169,10 @@ updateActionBar: () => {
         </p>
       </div>
     `
-    : `
-      <div class="mb-4 bg-green-50 border-l-4 border-green-500 p-3 rounded-r-lg text-xs text-gray-800">
-        <p class="font-semibold mb-1">Start from where you are</p>
-        <p>
-          This tour uses <span class="font-semibold">your current location</span> as the starting point.
-          When you tap <strong>&quot;Start in Google Maps&quot;</strong> below,
-          directions will begin from where you are standing.
-        </p>
-      </div>
-    `;
+      : '';
 
   const nearStopBanner = app.renderNearStopBanner();
 
-  // NEW: only render the current card
   const total = state.activeTour.length;
   let currentCardHtml = '';
 
@@ -2221,11 +2191,8 @@ updateActionBar: () => {
 
   return `
     <div class="pb-32">
-      <div class="flex items-center justify-between mb-4">
-        <button onclick="app.goHome()" class="flex items-center text-gray-600 hover:text-plaque-blue font-medium transition-colors">
-          ${Icons.ArrowLeft} <span class="ml-1">New Search</span>
-        </button>
-        <div class="text-right">
+      <div class="flex items-center justify-center mb-4">
+        <div class="text-center">
           <h2 class="text-lg font-bold text-gray-900">${cityName} Tour</h2>
           <p class="text-xs text-gray-500">${state.activeTour.length} Locations</p>
         </div>
@@ -2233,16 +2200,6 @@ updateActionBar: () => {
 
       ${startNote}
       ${nearStopBanner}
-
-      <div class="mb-6 flex justify-end">
-        <button
-          onclick="app.toggleAutoPlay()"
-          class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm border
-            ${state.isAutoPlay ? 'bg-plaque-blue text-white border-plaque-blue' : 'bg-white text-gray-500 border-gray-300'}"
-        >
-          ${Icons.SpeakerWave(state.isAutoPlay)} Auto Guide: ${state.isAutoPlay ? 'ON' : 'OFF'}
-        </button>
-      </div>
 
       <div class="space-y-4">
         ${currentCardHtml}
@@ -2356,17 +2313,23 @@ updateActionBar: () => {
                     ` : ''}
                 </div>
                 ${!isEnd ? `
-                <div class="mt-3 flex justify-end">
-                    <button
-                        type="button"
-                        onclick="app.continueFromStop('${plaque.id}')"
-                        class="text-xs font-semibold text-plaque-blue hover:underline"
-                    >
-                        Skip this stop / continue to next
-                    </button>
-                </div>
-                ` : ''}
-
+  <div class="mt-3 flex gap-2 justify-end">
+    <button
+      type="button"
+      onclick="app.skipStop('${plaque.id}')"
+      class="px-3 py-2 rounded-lg border border-gray-300 bg-white text-xs font-semibold text-gray-700 hover:bg-gray-50"
+    >
+      Skip this stop
+    </button>
+    <button
+      type="button"
+      onclick="app.continueToNext('${plaque.id}')"
+      class="px-3 py-2 rounded-lg bg-plaque-blue text-xs font-semibold text-white hover:bg-blue-900"
+    >
+      Continue to next stop
+    </button>
+  </div>
+` : ''}
             </div>
         </div>
     `;
