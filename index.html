@@ -2356,36 +2356,34 @@ app.renderNav();
   `;
 },
 
-      renderCard: (plaque, index, total) => {
-  const isStart = index === 0;
-  const isEnd = index === total - 1;
+renderCard: (plaque, index, total) => {
   const isSel = state.selectedForRemoval.has(plaque.id);
-
   const isPaidTour = !!(state.activeTourMeta && state.activeTourMeta.isPaid);
   const canEditTour = !isPaidTour;
 
-  let badge = '', label = '', bg = '';
-  if (isStart) {
-    badge = Icons.Play;
-    label = 'Starting Point';
-    bg = 'bg-green-600';
-  } else if (isEnd) {
-    badge = Icons.Flag;
-    label = 'Final Stop';
-    bg = 'bg-gray-800';
-  } else {
-    badge = String.fromCharCode(65 + (index - 1));
-    label = `Stop ${index}`;
-    bg = 'bg-plaque-blue';
+  // NEW: stable numbering
+  const n = plaque.stopNumber || index + 1;
+  const isFirst = n === 1;
+  const isLast  = n === total;
+
+  let label = `Stop ${n}`;
+  let badgeText = n;
+  let badgeBg = 'bg-plaque-blue';
+
+  if (isFirst) {
+    badgeBg = 'bg-green-600';
+    // Optional: if you still want a subtle hint:
+    // label = `Stop ${n} · Starting point`;
+  } else if (isLast) {
+    badgeBg = 'bg-gray-800';
+    // Optional: label = `Stop ${n} · Final stop`;
   }
 
   const isCurrentAudio = state.currentSpeechPlaqueId === plaque.id;
   const isPaused = state.isSpeechPaused && isCurrentAudio;
   const isPlaying = state.isSpeechPlaying && isCurrentAudio;
   const cardBorderClass =
-    isSel && canEditTour
-      ? 'border-red-500 bg-red-50'
-      : 'border-plaque-blue';
+    isSel && canEditTour ? 'border-red-500 bg-red-50' : 'border-plaque-blue';
 
   const canGoBack = (state.currentStopIndex || 0) > 0;
 
@@ -2396,39 +2394,38 @@ app.renderNav();
       <div class="p-5">
         <div class="flex justify-between items-start mb-2">
           <div class="flex gap-2 items-center">
-            <div class="${bg} text-white w-8 h-8 flex items-center justify-center rounded-full font-bold shadow-sm flex-shrink-0">
-              ${badge}
+            <div class="${badgeBg} text-white w-8 h-8 flex items-center justify-center rounded-full font-bold shadow-sm flex-shrink-0">
+              ${badgeText}
             </div>
             <div class="flex flex-col">
-              <span class="text-xs text-gray-400 font-mono uppercase tracking-wide">${label}</span>
+              <span class="text-xs text-gray-400 font-mono uppercase tracking-wide">
+                ${label}
+              </span>
               ${
                 plaque.category
-                  ? `<span class="text-xs text-gray-500 font-bold bg-gray-100 px-2 py-0.5 rounded-full inline-block w-max">${plaque.category}</span>`
+                  ? `<span class="text-xs text-gray-500 font-bold bg-gray-100 px-2 py-0.5 rounded-full inline-block w-max">
+                       ${plaque.category}
+                     </span>`
                   : ''
               }
             </div>
           </div>
 
-          ${
-            canEditTour
-              ? `
-          <label class="flex items-center gap-2 cursor-pointer select-none">
-            <span id="txt-${plaque.id}"
-                  class="text-xs font-bold uppercase ${
-                    isSel ? 'text-red-600' : 'text-gray-400 group-hover:text-gray-600'
-                  }">
-              ${isSel ? 'Remove' : 'Keep'}
-            </span>
-            <input
-              type="checkbox"
-              ${isSel ? 'checked' : ''}
-              onchange="app.toggleRemove('${plaque.id}', this.checked)"
-              class="w-5 h-5 text-red-600 border-gray-300 rounded focus:ring-red-500"
-            >
-          </label>
-          `
-              : ''
-          }
+          ${/* Keep your existing Keep/Remove toggle when editable */''}
+          ${canEditTour ? `
+            <label class="flex items-center gap-2 cursor-pointer select-none">
+              <span id="txt-${plaque.id}"
+                    class="text-xs font-bold uppercase ${isSel ? 'text-red-600' : 'text-gray-400 group-hover:text-gray-600'}">
+                ${isSel ? 'Remove' : 'Keep'}
+              </span>
+              <input
+                type="checkbox"
+                ${isSel ? 'checked' : ''}
+                onchange="app.toggleRemove('${plaque.id}', this.checked)"
+                class="w-5 h-5 text-red-600 border-gray-300 rounded focus:ring-red-500"
+              >
+            </label>
+          ` : ''}
         </div>
 
         <h3 class="text-lg font-bold text-gray-900 leading-tight mb-2 mt-2 pr-2">
