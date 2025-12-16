@@ -1289,6 +1289,87 @@ continueToNext: (plaqueId) => {
         }
       },
 
+      goBackOneStop: () => {
+  if (!state.activeTour || !state.activeTour.length) return;
+
+  const idx = state.currentStopIndex || 0;
+  if (idx <= 0) return; // already at first stop
+
+  // Stop any audio
+  app.stopSpeech();
+
+  const newIndex = idx - 1;
+  const plaque = state.activeTour[newIndex];
+  if (!plaque) return;
+
+  state.currentStopIndex = newIndex;
+  app.showToast('Back to the previous stop.');
+  app.render();
+
+  // Scroll card into view after re-render
+  setTimeout(() => {
+    const el = document.getElementById(`card-${plaque.id}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, 50);
+},
+
+stopTourAndSaveProgress: () => {
+  if (!state.activeTour || !state.activeTour.length) return;
+
+  const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+
+  // Make sure we have a tour id (should already be set for paid tours)
+  let id = state.activeTourMeta && state.activeTourMeta.id;
+  const isPaid = !!(state.activeTourMeta && state.activeTourMeta.isPaid);
+
+  const cityName =
+    state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
+
+  if (!id) {
+    // Fallback: create a new saved tour if somehow not already saved
+    id = Date.now().toString();
+    existing.unshift({
+      id,
+      name: `${cityName} walk`,
+      date: new Date().toISOString(),
+      cityName,
+      plaques: state.activeTour,
+      isPlanned: state.isPlanned,
+      startHint: state.startHint,
+      distanceMiles: state.tourDistanceMiles,
+      walkMinutes: state.tourWalkMinutes,
+      totalMinutes: state.tourTotalMinutes,
+      price: state.tourPrice,
+      isPaid,
+      lastVisitedIndex: state.currentStopIndex || 0,
+    });
+  } else {
+    const idx = existing.findIndex(t => t.id === id);
+    if (idx !== -1) {
+      existing[idx] = {
+        ...existing[idx],
+        plaques: state.activeTour,
+        isPlanned: state.isPlanned,
+        startHint: state.startHint,
+        distanceMiles: state.tourDistanceMiles,
+        walkMinutes: state.tourWalkMinutes,
+        totalMinutes: state.tourTotalMinutes,
+        price: state.tourPrice,
+        isPaid,
+        lastVisitedIndex: state.currentStopIndex || 0,
+        date: new Date().toISOString(),
+      };
+    }
+  }
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
+  app.showToast('Progress saved – you can resume this tour later.');
+  state.view = 'FAVORITES';
+  app.render();
+},
+
       generateTour: async (e) => {
   if (e) e.preventDefault();
   state.loading = true;
