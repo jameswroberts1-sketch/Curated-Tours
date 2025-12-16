@@ -646,35 +646,38 @@ goToPaidTour: () => {
 },
 
 startTourAndOpenMaps: () => {
-  if (!state.activeTour || !state.activeTour.length) return;
+  // Safety: no tour, nothing to do
+  if (!state.activeTour || !state.activeTour.length) {
+    alert('There is no active tour to start yet.');
+    return;
+  }
 
-  // Make sure our unlock / prompt state is clean
+  // Reset on-foot state
   if (!state.unlockedStops) state.unlockedStops = new Set();
   state.nearPromptedStopId = null;
   state.arrivalPromptedStopId = null;
 
-  // We’re beginning the live tour – always start from Stop 1
+  // Always begin from Stop 1
   state.currentStopIndex = 0;
   state.isAutoPlay = true;
   state.view = 'TOUR';
   state.justNavigated = true;
 
-  // Render the first card *before* we hand off to Google Maps
+  // Show the first card before leaving for Maps
   app.render();
   window.scrollTo(0, 0);
 
-  // Build route for all remaining stops (from the start)
-  const navStops = state.activeTour;
-  const navUrl = Geo.generateMapsNavUrl(navStops);
-
-  // Start background geolocation for “you’re nearly there” prompts
+  // Start proximity / “you’re nearly there” prompts
   app.startAudioWatch();
 
-  // Open Maps in a tiny async tick to keep the click → popup link happy
+  // Build a route for the whole tour (from current stop onwards)
+  const remainingStops = app.getRemainingStops();
+  const navStops = remainingStops.length ? remainingStops : state.activeTour;
+  const navUrl = Geo.generateMapsNavUrl(navStops);
+
   if (navUrl) {
-    setTimeout(() => {
-      window.open(navUrl, '_blank');
-    }, 50);
+    // IMPORTANT: open synchronously from this click handler
+    window.open(navUrl, '_blank');
   }
 },
       
