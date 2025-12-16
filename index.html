@@ -783,10 +783,13 @@
       // ----------------------------
 
       togglePlanningReplace: (id, checked) => {
-        if (checked) state.planningMarkedForReplace.add(id);
-        else state.planningMarkedForReplace.delete(id);
-        // No need to re-render immediately – checkboxes handle themselves
-      },
+  if (checked) {
+    state.planningMarkedForReplace.add(id);
+  } else {
+    state.planningMarkedForReplace.delete(id);
+  }
+  app.render();
+},
 
       resetPlanningSelection: () => {
         state.planningMarkedForReplace = new Set();
