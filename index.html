@@ -163,6 +163,7 @@
       },
       // NEW: planning-stage “mark for replacement” selection
       planningMarkedForReplace: new Set(),
+      justNavigated: false,
     };
 
     // --- Services: Geo ---
@@ -613,35 +614,39 @@
       // Generic view setter (we'll use this for the bottom nav later)
       setView: (view) => {
         state.view = view;
+        state.justNavigated = true;
         app.stopAudioWatch();
-        app.render();
+      app.render();
       },
 
       // View Switchers
-                  goHome: () => {
-                state.view = 'HOME';
-                state.activeTour = [];
-                state.selectedForRemoval = new Set();
-                state.currentStopIndex = 0;
-                app.stopAudioWatch();
-                app.render();
-            },
+      goHome: () => {
+        state.view = 'HOME';
+        state.justNavigated = true;
+        state.activeTour = [];
+        state.selectedForRemoval = new Set();
+        state.currentStopIndex = 0;
+        app.stopAudioWatch();
+      app.render();
+    },
 
 
       goFavorites: () => {
-        state.view = 'FAVORITES';
-        app.stopAudioWatch();
-        app.render();
-      },
-      goToPaidTour: () => {
+  state.view = 'FAVORITES';
+  state.justNavigated = true;
+  app.stopAudioWatch();
+  app.render();
+},
+      
+goToPaidTour: () => {
   app.markTourPaidAndSave();
   state.view = 'INFO';   // new info/safety screen
+  state.justNavigated = true;
   app.render();
 },
 
-      startTourAndOpenMaps: () => {
+startTourAndOpenMaps: () => {
   if (!state.activeTour || !state.activeTour.length) return;
-
   if (!state.unlockedStops) state.unlockedStops = new Set();
   if (!state.nearPromptedStopId) state.nearPromptedStopId = null;
   if (!state.arrivalPromptedStopId) state.arrivalPromptedStopId = null;
@@ -659,6 +664,7 @@
   window.open(navUrl, '_blank');
 
   state.view = 'TOUR';
+  state.justNavigated = true;
   app.render();
 },
 
@@ -1188,7 +1194,7 @@ playArrivalPrompt: (plaque) => {
 },
 
 
-            advanceToNextFromStop: (plaqueId, toastMessage, reopenMaps) => {
+  advanceToNextFromStop: (plaqueId, toastMessage, reopenMaps) => {
   if (!state.activeTour || !state.activeTour.length) return;
 
   const idx = state.activeTour.findIndex(p => p.id === plaqueId);
@@ -1380,6 +1386,7 @@ continueToNext: (plaqueId) => {
 
     // 6. Show preview/paywall
     state.view = 'PREVIEW';
+    state.justNavigated = true;
   } catch (err) {
     state.error = err.message || 'Error generating tour';
   } finally {
@@ -1553,6 +1560,7 @@ continueToNext: (plaqueId) => {
 
         // IMPORTANT: Only jump straight into the full tour if it’s paid
         state.view = tour.isPaid ? 'TOUR' : 'PREVIEW';
+        state.justNavigated = true;
 
         app.render();
       },
