@@ -1212,50 +1212,7 @@ playArrivalPrompt: (plaque) => {
     console.warn('Arrival prompt failed', e);
   }
 },
-
-      goBackOneStop: () => {
-  if (!state.activeTour || !state.activeTour.length) return;
-
-  const current = state.currentStopIndex || 0;
-  if (current <= 0) return;
-
-  // Step back one stop and reset any audio
-  app.stopSpeech();
-  state.currentStopIndex = current - 1;
-  app.showToast('Back to the previous stop.');
-  app.render();
-},
-
-stopTourAndSaveProgress: () => {
-  if (!state.activeTour || !state.activeTour.length) return;
-
-  const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-  let id = state.activeTourMeta && state.activeTourMeta.id;
-
-  // If the tour hasn’t been saved yet, fall back to the normal save flow
-  if (!id) {
-    app.saveTour();
-    return;
-  }
-
-  const idx = existing.findIndex(t => t.id === id);
-  if (idx === -1) {
-    app.saveTour();
-    return;
-  }
-
-  // Remember where the user got to
-  existing[idx].lastVisitedIndex = state.currentStopIndex || 0;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
-
-  app.stopSpeech();
-  app.stopAudioWatch();
-
-  app.showToast('Tour progress saved. You can resume it from Saved.');
-  state.view = 'FAVORITES';
-  app.render();
-},
-
+      
   advanceToNextFromStop: (plaqueId, toastMessage, reopenMaps) => {
   if (!state.activeTour || !state.activeTour.length) return;
 
