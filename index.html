@@ -1996,7 +1996,11 @@ updateActionBar: () => {
 
           <div class="space-y-1">
             ${alphaStops.map(p => `
-                <label class="flex items-start gap-3 px-2 py-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                <label
+  class="flex items-start gap-3 px-2 py-2 rounded-lg cursor-pointer
+         ${state.planningMarkedForReplace.has(p.id)
+           ? 'bg-red-50 border border-red-200'
+           : 'hover:bg-gray-50'}">
                   <input
                     type="checkbox"
                     class="mt-1 w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
@@ -2019,25 +2023,10 @@ updateActionBar: () => {
             }
           </div>
 
-          <div class="mt-3 flex flex-col gap-2">
-            ${
-              hasMarkedForReplace
-                ? `
-                  <button
-                    type="button"
-                    onclick="app.applyPlanningChanges()"
-                    class="w-full bg-red-600 hover:bg-red-700 text-white text-sm font-semibold py-2.5 rounded-lg shadow-sm transition-colors"
-                  >
-                    Apply changes &amp; regenerate tour
-                  </button>
-                `
-                : `
-                  <p class="text-xs text-gray-500">
-                    Tick one or more stops above that you’d like me to swap out, and I’ll regenerate the tour using alternatives nearby.
-                  </p>
-                `
-            }
-          </div>
+          <p class="mt-3 text-xs text-gray-500">
+  Tick one or more stops above that you’d like me to swap out.
+  When you’re ready, use the button at the bottom of the screen to replace them.
+</p>
         </div>
         `
             : ''
@@ -2079,29 +2068,46 @@ updateActionBar: () => {
           </p>
         </div>
 
-        <!-- Actions -->
+<!-- Actions -->
 <div class="mt-5 space-y-2">
-  <button
-    onclick="app.goToPaidTour()"
-    class="w-full bg-plaque-blue hover:bg-blue-900 text-white font-bold py-3 rounded-xl shadow-md transition-colors flex items-center justify-center gap-2"
-  >
-    Let’s get going
-  </button>
+  ${
+    hasMarkedForReplace
+      ? `
+        <button
+          type="button"
+          onclick="app.applyPlanningChanges()"
+          class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl shadow-md transition-colors flex items-center justify-center gap-2"
+        >
+          Replace selected stops
+        </button>
+        <p class="text-xs text-gray-500 text-center">
+          Once you’re happy with the line-up, you’ll see the payment and “start tour” options here.
+        </p>
+      `
+      : `
+        <button
+          onclick="app.goToPaidTour()"
+          class="w-full bg-plaque-blue hover:bg-blue-900 text-white font-bold py-3 rounded-xl shadow-md transition-colors flex items-center justify-center gap-2"
+        >
+          Let’s get going
+        </button>
 
-  <button
-    onclick="app.saveTour()"
-    class="w-full bg-white border border-gray-300 text-gray-800 font-semibold py-3 rounded-xl shadow-sm transition-colors hover:bg-gray-50 flex items-center justify-center gap-2"
-  >
-    ${Icons.Heart(false)}
-    Save this Curated Tour for later
-  </button>
+        <button
+          onclick="app.saveTour()"
+          class="w-full bg-white border border-gray-300 text-gray-800 font-semibold py-3 rounded-xl shadow-sm transition-colors hover:bg-gray-50 flex items-center justify-center gap-2"
+        >
+          ${Icons.Heart(false)}
+          Save this Curated Tour for later
+        </button>
 
-  <button
-    onclick="app.goHome()"
-    class="w-full text-xs text-gray-500 mt-1 hover:underline"
-  >
-    Cancel and start again
-  </button>
+        <button
+          onclick="app.goHome()"
+          class="w-full text-xs text-gray-500 mt-1 hover:underline"
+        >
+          Cancel and start again
+        </button>
+      `
+  }
 </div>
       </div>
     </div>
