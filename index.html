@@ -647,27 +647,34 @@ goToPaidTour: () => {
 
 startTourAndOpenMaps: () => {
   if (!state.activeTour || !state.activeTour.length) return;
+
   if (!state.unlockedStops) state.unlockedStops = new Set();
-  if (!state.nearPromptedStopId) state.nearPromptedStopId = null;
-  if (!state.arrivalPromptedStopId) state.arrivalPromptedStopId = null;
+  state.nearPromptedStopId = null;
+  state.arrivalPromptedStopId = null;
 
-  const remainingStops = app.getRemainingStops();
-  const navStops = remainingStops.length ? remainingStops : state.activeTour;
-
-  const navUrl = Geo.generateMapsNavUrl(navStops);
-
-  // Turn on auto guide
+  // We’re starting the proper tour now – always from the first stop
+  state.currentStopIndex = 0;
   state.isAutoPlay = true;
-  app.startAudioWatch();
 
-  // Open Maps – user will still need to tap Start in Google Maps itself
-  window.open(navUrl, '_blank');
-
+  // Switch UI into TOUR view *before* opening Google Maps
   state.view = 'TOUR';
   state.justNavigated = true;
   app.render();
-},
+  window.scrollTo(0, 0);
 
+  // Now build the route from the beginning of the tour
+  const navStops = state.activeTour;
+  const navUrl = Geo.generateMapsNavUrl(navStops);
+
+  // Start background location watching for near/arrival prompts
+  app.startAudioWatch();
+
+  // Finally hand off to Google Maps
+  if (navUrl) {
+    window.open(navUrl, '_blank');
+  }
+},
+      
       markTourPaidAndSave: () => {
         if (!state.activeTour.length) return;
 
