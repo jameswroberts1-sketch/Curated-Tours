@@ -646,37 +646,32 @@ goToPaidTour: () => {
 },
 
 startTourAndOpenMaps: () => {
-  // Safety: no tour, nothing to do
+  // 1. Sanity check: do we actually have a tour?
   if (!state.activeTour || !state.activeTour.length) {
-    alert('There is no active tour to start yet.');
+    alert('Something went wrong – there is no tour loaded to start.');
     return;
   }
 
-  // Reset on-foot state
+  // 2. Reset navigation state
   if (!state.unlockedStops) state.unlockedStops = new Set();
   state.nearPromptedStopId = null;
   state.arrivalPromptedStopId = null;
-
-  // Always begin from Stop 1
   state.currentStopIndex = 0;
-  state.isAutoPlay = true;
-  state.view = 'TOUR';
-  state.justNavigated = true;
 
-  // Show the first card before leaving for Maps
+  // 3. Switch to the TOUR view and render the first card
+  state.view = 'TOUR';
+  state.isAutoPlay = true;
+  state.justNavigated = true;
   app.render();
   window.scrollTo(0, 0);
 
-  // Start proximity / “you’re nearly there” prompts
+  // 4. Start background geo-watch (for “you’re nearly there” prompts)
   app.startAudioWatch();
 
-  // Build a route for the whole tour (from current stop onwards)
-  const remainingStops = app.getRemainingStops();
-  const navStops = remainingStops.length ? remainingStops : state.activeTour;
-  const navUrl = Geo.generateMapsNavUrl(navStops);
-
+  // 5. Open Google Maps for the *whole* tour, from Stop 1 onwards
+  const navUrl = Geo.generateMapsNavUrl(state.activeTour);
   if (navUrl) {
-    // IMPORTANT: open synchronously from this click handler
+    // Open synchronously so iOS treats it as a direct tap
     window.open(navUrl, '_blank');
   }
 },
