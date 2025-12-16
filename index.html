@@ -1228,10 +1228,17 @@ playArrivalPrompt: (plaque) => {
   let openMaps = reopenMaps;
 
   if (nextIndex >= state.activeTour.length) {
-    // No more stops; we've effectively finished the tour
+    // No more stops; we've finished the tour
     state.currentStopIndex = state.activeTour.length;
-    app.showToast('You’ve reached the final stop on this Curated Tour.');
-    openMaps = false; // don’t reopen directions once the tour is done
+
+    app.stopAudioWatch();
+    app.stopSpeech();
+
+    state.toast = 'You’ve reached the final stop on this Curated Tour.';
+    state.view = 'OUTRO';
+    state.justNavigated = true;
+    app.render();
+    return;                 // <- important: don't try to reopen Maps
   } else {
     const current = state.currentStopIndex || 0;
     if (nextIndex > current) {
@@ -1248,10 +1255,10 @@ playArrivalPrompt: (plaque) => {
     const navUrl = Geo.generateMapsNavUrl(navStops);
     if (navUrl) window.open(navUrl, '_blank');
   }
-    state.justNavigated = true;
-    app.render();
-  },
 
+  state.justNavigated = true;
+  app.render();
+},
 skipStop: (plaqueId) => {
   if (!state.activeTour || !state.activeTour.length) return;
 
