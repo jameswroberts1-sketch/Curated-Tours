@@ -1834,6 +1834,8 @@ updateActionBar: () => {
     html += app.renderStartInfo();
   } else if (state.view === 'TOUR') {
     html += app.renderTour();
+    } else if (state.view === 'OUTRO') {
+    html += app.renderOutro();
   } else if (state.view === 'FAVORITES') {
     html += app.renderFavorites();
   } else if (state.view === 'GUIDE') {
@@ -1929,6 +1931,56 @@ app.renderNav();
             class="w-full text-xs text-gray-500 mt-3 hover:underline text-center"
           >
             Cancel and start again
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+},
+
+      renderOutro: () => {
+  const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
+  const stopCount = state.activeTour ? state.activeTour.length : 0;
+
+  return `
+    <div class="pb-24">
+      <div class="max-w-md mx-auto bg-white rounded-2xl shadow-xl border border-gray-100 p-6 space-y-4 mt-4">
+        <h1 class="text-xl font-extrabold text-gray-900 mb-1">
+          Thanks for walking with Curated Tours
+        </h1>
+        <p class="text-xs text-gray-500 tracking-wide uppercase mb-2">
+          ${cityName} · ${stopCount} stops
+        </p>
+
+        <p class="text-sm text-gray-700">
+          That’s the end of this Curated Tour. We hope you’ve enjoyed exploring
+          these stories and corners of ${cityName}.
+        </p>
+
+        <p class="text-sm text-gray-700">
+          You can revisit this tour any time from the <span class="font-semibold">Saved</span> tab,
+          or build a completely new route with different themes and collections.
+        </p>
+
+        <ul class="list-disc list-inside space-y-1 text-sm text-gray-700">
+          <li>Create another tour for this city with a different collection.</li>
+          <li>Try a new city from your Curated Tours collections.</li>
+          <li>Share your favourite stops with friends or family.</li>
+        </ul>
+
+        <div class="pt-3 space-y-2">
+          <button
+            onclick="app.goHome()"
+            class="w-full bg-plaque-blue hover:bg-blue-900 text-white font-bold py-3 rounded-xl shadow-md transition-colors flex items-center justify-center gap-2"
+          >
+            Back to Home – plan another tour
+          </button>
+
+          <button
+            onclick="app.setView('FAVORITES')"
+            class="w-full bg-white border border-gray-300 text-gray-800 font-semibold py-3 rounded-xl shadow-sm transition-colors hover:bg-gray-50 flex items-center justify-center gap-2"
+          >
+            View Saved Tours
           </button>
         </div>
       </div>
