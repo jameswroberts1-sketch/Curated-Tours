@@ -683,7 +683,13 @@ startTourAndOpenMaps: () => {
 },
       
       markTourPaidAndSave: () => {
-        if (!state.activeTour.length) return;
+  if (!state.activeTour.length) return;
+
+  // Freeze stop numbers for this tour
+  state.activeTour = state.activeTour.map((p, idx) => ({
+    ...p,
+    stopNumber: p.stopNumber || idx + 1,   // 1-based, stable
+  }));
 
         const cityName =
           state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
@@ -1666,10 +1672,14 @@ stopTourAndSaveProgress: () => {
       },
 
       loadTour: (id) => {
-        const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-        const tour = existing.find((t) => t.id === id);
-        if (!tour) return;
+  const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  const tour = existing.find((t) => t.id === id);
+  if (!tour) return;
 
+  state.activeTour = (tour.plaques || []).map((p, idx) => ({
+    ...p,
+    stopNumber: p.stopNumber || idx + 1,
+  }));
         state.activeTour = tour.plaques || [];
         state.candidatePlaques = []; // can’t regenerate well from saved
         state.stops = tour.plaques ? tour.plaques.length : 0;
@@ -2503,7 +2513,7 @@ renderCard: (plaque, index, total) => {
             class="w-full py-2.5 rounded-lg bg-plaque-blue hover:bg-blue-900
                    text-white text-sm font-semibold"
           >
-            ${isEnd ? 'Finish tour' : 'Continue to next stop'}
+            ${isLast ? 'Finish tour' : 'Continue to next stop'}
           </button>
 
           <!-- Back / Skip row + centred Stop button -->
