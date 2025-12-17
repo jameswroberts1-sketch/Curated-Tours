@@ -1074,11 +1074,12 @@ speak: async (plaqueId) => {
       startAudioWatch: () => {
   if (!navigator.geolocation) return;
 
+  // Clear any previous watcher
   app.stopAudioWatch();
 
   if (!state.unlockedStops) state.unlockedStops = new Set();
-  if (!state.nearPromptedStopId) state.nearPromptedStopId = null;
-  if (!state.arrivalPromptedStopId) state.arrivalPromptedStopId = null;
+  state.nearPromptedStopId = null;
+  state.arrivalPromptedStopId = null;
 
   state.watchId = navigator.geolocation.watchPosition(
     (pos) => {
@@ -1086,19 +1087,17 @@ speak: async (plaqueId) => {
       const uLng = pos.coords.longitude;
       state.userLocation = { latitude: uLat, longitude: uLng };
 
+      // No active tour? Nothing to do.
       if (!state.activeTour.length) return;
 
-      const nextIndex = state.activeTour.findIndex(
-        (p) => !state.unlockedStops.has(p.id)
-      );
-
-      if (nextIndex === -1) {
+      // ALWAYS use the current UI stop index – not unlockedStops
+      const idx = state.currentStopIndex || 0;
+      const nextStop = state.activeTour[idx];
+      if (!nextStop) {
+        // We’ve gone past the last stop – stop watching.
         app.stopAudioWatch();
         return;
       }
-
-      state.currentStopIndex = nextIndex;
-      const nextStop = state.activeTour[nextIndex];
 
       if (
         !Number.isFinite(nextStop.latitude) ||
@@ -1116,28 +1115,40 @@ speak: async (plaqueId) => {
 
       // 1) "You’re here" cue – very close (~5m)
       if (dist <= ARRIVAL_DISTANCE_MILES) {
-        state.unlockedStops.add(nextStop.id);
+        // Mark this stop as unlocked for audio
+        if (!state.unlockedStops.has(nextStop.id)) {
+          state.unlockedStops.add(nextStop.id);
+        }
         state.nearlyThereStopId = nextStop.id;
 
         if (state.arrivalPromptedStopId !== nextStop.id) {
           state.arrivalPromptedStopId = nextStop.id;
+
+          // HAPTIC + audio
+          if (navigator.vibrate) {
+            navigator.vibrate(250);
+          }
           app.playArrivalPrompt(nextStop);
         }
 
         app.render();
-        return; // don’t also fire the "approaching" cue this tick
+        return; // don't also fire the "approaching" cue on this tick
       }
 
       // 2) "You’re approaching" cue – within main unlock radius
-      if (
-        dist <= AUDIO_UNLOCK_DISTANCE &&
-        !state.unlockedStops.has(nextStop.id)
-      ) {
-        state.unlockedStops.add(nextStop.id);
+      if (dist <= AUDIO_UNLOCK_DISTANCE) {
+        if (!state.unlockedStops.has(nextStop.id)) {
+          state.unlockedStops.add(nextStop.id);
+        }
         state.nearlyThereStopId = nextStop.id;
 
         if (state.nearPromptedStopId !== nextStop.id) {
           state.nearPromptedStopId = nextStop.id;
+
+          // HAPTIC + audio
+          if (navigator.vibrate) {
+            navigator.vibrate(150);
+          }
           app.playNearStopPrompt(nextStop);
         }
 
@@ -1148,7 +1159,6 @@ speak: async (plaqueId) => {
     { enableHighAccuracy: true }
   );
 },
-
       stopAudioWatch: () => {
         if (state.watchId !== null) {
           navigator.geolocation.clearWatch(state.watchId);
