@@ -143,6 +143,7 @@
       unlockedStops: new Set(),     // ids that are allowed to play audio
       nearlyThereStopId: null,      // current “you’re almost there” popup target
       userLocation: null,
+      bannerDismissedStops: new Set(),   // stops where the yellow banner has been acknowledged
       watchId: null,
       bioCache: {},
       isPlanned: false,
@@ -1080,6 +1081,7 @@ speak: async (plaqueId) => {
   if (!state.unlockedStops) state.unlockedStops = new Set();
   state.nearPromptedStopId = null;
   state.arrivalPromptedStopId = null;
+  if (!state.bannerDismissedStops) state.bannerDismissedStops = new Set();
 
   state.watchId = navigator.geolocation.watchPosition(
     (pos) => {
@@ -1113,8 +1115,11 @@ speak: async (plaqueId) => {
         nextStop.longitude
       );
 
-      // 1) "You’re here" cue – very close (~5m)
-      if (dist <= ARRIVAL_DISTANCE_MILES) {
+            // 1) "You’re here" cue – very close (~5m)
+      if (
+        dist <= ARRIVAL_DISTANCE_MILES &&
+        !state.bannerDismissedStops.has(nextStop.id)
+      ) {
         // Mark this stop as unlocked for audio
         if (!state.unlockedStops.has(nextStop.id)) {
           state.unlockedStops.add(nextStop.id);
@@ -1135,8 +1140,11 @@ speak: async (plaqueId) => {
         return; // don't also fire the "approaching" cue on this tick
       }
 
-      // 2) "You’re approaching" cue – within main unlock radius
-      if (dist <= AUDIO_UNLOCK_DISTANCE) {
+            // 2) "You’re approaching" cue – within main unlock radius
+      if (
+        dist <= AUDIO_UNLOCK_DISTANCE &&
+        !state.bannerDismissedStops.has(nextStop.id)
+      ) {
         if (!state.unlockedStops.has(nextStop.id)) {
           state.unlockedStops.add(nextStop.id);
         }
@@ -1480,6 +1488,7 @@ stopTourAndSaveProgress: () => {
     state.currentStopIndex = 0;
     state.unlockedStops = new Set();
     state.nearlyThereStopId = null;
+    state.bannerDismissedStops = new Set();
 
     // 4. Compute a friendly startHint
     try {
@@ -1654,7 +1663,6 @@ stopTourAndSaveProgress: () => {
     ...p,
     stopNumber: p.stopNumber || idx + 1,
   }));
-        state.activeTour = tour.plaques || [];
         state.candidatePlaques = []; // can’t regenerate well from saved
         state.stops = tour.plaques ? tour.plaques.length : 0;
 
@@ -1678,6 +1686,7 @@ stopTourAndSaveProgress: () => {
         state.unlockedStops = new Set();
         state.currentStopIndex = 0;
         state.nearlyThereStopId = null;
+        state.bannerDismissedStops = new Set();
 
         // IMPORTANT: Only jump straight into the full tour if it’s paid
         state.view = tour.isPaid ? 'TOUR' : 'PREVIEW';
@@ -2684,10 +2693,17 @@ renderCard: (plaque, index, total) => {
   `;
       },
 
-      confirmArrivedAtStop: (plaqueId) => {
+        confirmArrivedAtStop: (plaqueId) => {
+        if (!state.unlockedStops) state.unlockedStops = new Set();
+        if (!state.bannerDismissedStops) state.bannerDismissedStops = new Set();
+
         // Keep this stop unlocked and clear the banner
         state.unlockedStops.add(plaqueId);
         state.nearlyThereStopId = null;
+
+        // Important: never show the yellow banner again for this stop
+        state.bannerDismissedStops.add(plaqueId);
+
         app.render();
 
         // After re-render, scroll that card into view
