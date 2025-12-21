@@ -167,6 +167,45 @@
       justNavigated: false,
     };
 
+    // --- Tour Sharing Helpers ---
+const TourSharing = {
+  encodeTourForUrl(tour) {
+    // Keep payload lean for shorter URLs
+    const payload = {
+      v: 1,
+      name: tour.name || `${tour.cityName || 'Tour'} walk`,
+      cityName: tour.cityName || '',
+      isPlanned: !!tour.isPlanned,
+      startHint: tour.startHint || '',
+      distanceMiles: tour.distanceMiles || 0,
+      walkMinutes: tour.walkMinutes || 0,
+      totalMinutes: tour.totalMinutes || 0,
+      price: tour.price || 0,
+      plaques: (tour.plaques || []).map((p, idx) => ({
+        id: String(p.id),
+        title: p.title,
+        address: p.address,
+        latitude: p.latitude,
+        longitude: p.longitude,
+        summary: p.summary,
+        bio: p.bio,
+        category: p.category,
+        stopNumber: p.stopNumber || idx + 1,
+      })),
+    };
+
+    const json = JSON.stringify(payload);
+    const b64 = btoa(unescape(encodeURIComponent(json)));
+    return encodeURIComponent(b64);
+  },
+
+  decodeTourFromUrlParam(param) {
+    const b64 = decodeURIComponent(param);
+    const json = decodeURIComponent(escape(atob(b64)));
+    return JSON.parse(json);
+  },
+};
+
     // --- Services: Geo ---
     const Geo = {
       calculateDistance: (lat1, lon1, lat2, lon2) => {
@@ -602,13 +641,39 @@
                     d="M8.25 10.5V7a3.75 3.75 0 017.5 0M7.5 10.5h9A1.5 1.5 0 0118 12v6a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 016 18v-6a1.5 1.5 0 011.5-1.5z" />
                     </svg>
                     `,
+
+            Share: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                   fill="none" stroke="currentColor" stroke-width="1.5"
+                   class="w-4 h-4">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M7.5 8.25 12 4.5l4.5 3.75M7.5 15.75 12 19.5l4.5-3.75M4.5 12h15" />
+             </svg>`,
     };
 
     // --- Application Controller ---
-    const app = {
-      init: () => {
+          init: () => {
         initVoiceSupport();
+
+        // Always start loading categories in the background
         app.loadCategories();
+
+        // Check for a shared-tour URL parameter (e.g. ?tour=ENCODED)
+        try {
+          const params = new URLSearchParams(window.location.search);
+          const sharedParam = params.get('tour');
+          if (sharedParam) {
+            const payload = TourSharing.decodeTourFromUrlParam(sharedParam);
+            app.loadSharedTour(payload);
+
+            // Clean the URL after loading so it looks nice
+            window.history.replaceState({}, '', window.location.pathname);
+            return; // loadSharedTour has already rendered PREVIEW
+          }
+        } catch (err) {
+          console.error('Failed to decode shared tour from URL', err);
+        }
+
+        // Normal first render (no shared link)
         app.render();
       },
 
@@ -1694,12 +1759,111 @@ stopTourAndSaveProgress: () => {
 
         app.render();
       },
+
+            loadSharedTour: (payload) => {
+        if (!payload || !Array.isArray(payload.plaques) || !payload.plaques.length) {
+          alert('This shared tour link appears to be invalid or empty.');
+          return;
+        }
+
+        const plaques = payload.plaques.map((p, idx) => ({
+          ...p,
+          stopNumber: p.stopNumber || idx + 1,
+        }));
+
+        state.activeTour = plaques;
+        state.candidatePlaques = [];
+        state.stops = plaques.length;
+
+        state.selectedCity = payload.cityName || state.selectedCity;
+        state.isPlanned = !!payload.isPlanned;
+        state.startHint = payload.startHint || '';
+
+        state.tourDistanceMiles = payload.distanceMiles || 0;
+        state.tourWalkMinutes = payload.walkMinutes || 0;
+        state.tourTotalMinutes = payload.totalMinutes || 0;
+        state.tourPrice = payload.price || 0;
+
+        // User 2 has NOT paid yet
+        state.activeTourMeta = {
+          id: null,
+          isPaid: false,
+        };
+
+        state.currentStopIndex = 0;
+        state.unlockedStops = new Set();
+        state.nearlyThereStopId = null;
+
+        // Drop them on the “payment / preview” page
+        state.view = 'PREVIEW';
+        state.justNavigated = true;
+        app.render();
+      },
+      
       deleteTour: (id, e) => {
         e.stopPropagation();
         const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
         const updated = existing.filter(t => t.id !== id);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
         app.render();
+      },
+
+      shareTour: (id, e) => {
+        if (e) e.stopPropagation();
+
+        const existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        const tour = existing.find(t => t.id === id);
+        if (!tour) {
+          alert('Sorry, I couldn’t find that tour to share.');
+          return;
+        }
+
+        if (!tour.isPaid) {
+          alert('You can only share a tour after it has been paid for.');
+          return;
+        }
+
+        // Important: users who receive the link have NOT paid yet
+        const sharePayload = {
+          ...tour,
+          isPaid: false,
+        };
+
+        const baseUrl = window.location.origin + window.location.pathname;
+        const encoded = TourSharing.encodeTourForUrl(sharePayload);
+        const shareUrl = `${baseUrl}?tour=${encoded}`;
+
+        if (navigator.share) {
+          navigator.share({
+            title: tour.name || 'Curated Tour',
+            text: 'Here’s a Curated Tours route I made – open this link to view and purchase it.',
+            url: shareUrl,
+          }).catch(err => {
+            console.log('Share cancelled or failed', err);
+          });
+          return;
+        }
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(shareUrl)
+            .then(() => {
+              app.showToast('Share link copied to clipboard.');
+            })
+            .catch(() => {
+              alert('Here is your share link:\n\n' + shareUrl);
+            });
+        } else {
+          alert('Here is your share link:\n\n' + shareUrl);
+        }
+      },
+
+      shareActiveTourFromInfo: () => {
+        const meta = state.activeTourMeta || {};
+        if (!meta.id || !meta.isPaid) {
+          alert('You can only share a tour after it has been paid for and saved.');
+          return;
+        }
+        app.shareTour(meta.id);
       },
 
       // --- Render Functions ---
@@ -1937,7 +2101,7 @@ app.renderNav();
           </li>
         </ul>
 
-        <div class="pt-2">
+                <div class="pt-2 space-y-2">
           <button
             onclick="app.startTourAndOpenMaps()"
             class="w-full bg-plaque-blue hover:bg-blue-900 text-white font-bold py-3 rounded-xl shadow-md transition-colors flex items-center justify-center gap-2"
@@ -1946,8 +2110,16 @@ app.renderNav();
           </button>
 
           <button
+            onclick="app.shareActiveTourFromInfo()"
+            class="w-full bg-white border border-gray-300 text-gray-800 font-semibold py-3 rounded-xl shadow-sm transition-colors hover:bg-gray-50 flex items-center justify-center gap-2"
+          >
+            ${Icons.Share}
+            <span>Share this Curated Tour</span>
+          </button>
+
+          <button
             onclick="app.goHome()"
-            class="w-full text-xs text-gray-500 mt-3 hover:underline text-center"
+            class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl shadow-md flex items-center justify-center gap-2"
           >
             Cancel and start again
           </button>
@@ -2664,12 +2836,29 @@ renderCard: (plaque, index, total) => {
                           </div>
                         </div>
 
-                        <div class="flex flex-col items-end gap-2">
+                       <div class="flex flex-col items-end gap-2">
                           <!-- Padlock status -->
                           <div class="flex items-center gap-1 text-xs ${padlockColor}">
                             ${padlockIcon}
                             <span>${padlockText}</span>
                           </div>
+
+                          ${
+                            isPaid
+                              ? `
+                              <!-- Share button (only for paid tours) -->
+                              <button
+                                onclick="app.shareTour('${tour.id}', event)"
+                                class="px-3 py-1.5 text-xs rounded-full border border-gray-300
+                                       text-gray-700 hover:bg-gray-50 flex items-center gap-1
+                                       transition-colors z-10"
+                              >
+                                ${Icons.Share}
+                                <span>Share</span>
+                              </button>
+                              `
+                              : ''
+                          }
 
                           <!-- Delete button -->
                           <button
