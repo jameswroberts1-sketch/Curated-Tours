@@ -2906,64 +2906,141 @@ renderCard: (plaque, index, total) => {
       },
 
       renderGuide: () => {
-        return `
-                <div class="max-w-md mx-auto bg-white rounded-2xl shadow-md p-6 space-y-4 mt-4">
-                    <h2 class="text-xl font-bold text-gray-900">How Curated Tours works</h2>
-                    <p class="text-sm text-gray-700">
-                        Curated Tours helps you build short, walkable tours of historic places
-                        around a starting point you choose.
-                    </p>
+  return `
+    <div class="max-w-md mx-auto bg-white rounded-2xl shadow-md p-6 space-y-4 mt-4">
+      <h2 class="text-xl font-bold text-gray-900">How Curated Tours works</h2>
+      <p class="text-sm text-gray-700">
+        Curated Tours helps you build short, walkable routes of historic places
+        in UK cities. You choose the city and theme – I’ll pick a smart starting
+        point and optimise the walking order for you.
+      </p>
 
-                    <h3 class="text-sm font-semibold text-gray-900 mt-3">1. Pick a city</h3>
-                    <p class="text-sm text-gray-700">
-                       Start by choosing the city you want to explore from the
-                       <strong>Select City</strong> dropdown.
-                    </p>
+      <h3 class="text-sm font-semibold text-gray-900 mt-3">1. Pick a city</h3>
+      <p class="text-sm text-gray-700">
+        Start by choosing the city you want to explore from the
+        <strong>Select City</strong> dropdown. All the stops on your tour will
+        sit inside this city.
+      </p>
 
-                    <h3 class="text-sm font-semibold text-gray-900 mt-3">2. Choose a collection</h3>
-                    <p class="text-sm text-gray-700">
-                       Then choose a <strong>Collection (Category / Role)</strong> for that city –
-                       for example <strong>Britpop</strong>, <strong>Charles Dickens</strong> or
-                       any other themed group of locations.
-                    </p>
+      <h3 class="text-sm font-semibold text-gray-900 mt-3">2. Choose a collection</h3>
+      <p class="text-sm text-gray-700">
+        Then choose a <strong>Collection</strong> for that city – for example
+        <strong>Britpop</strong>, <strong>Charles Dickens</strong>, or any
+        other themed group of locations. Your tour will only include places
+        that match this collection.
+      </p>
 
-                    <h3 class="text-sm font-semibold text-gray-900 mt-3">3. Choose when you’re walking</h3>
-                    <p class="text-sm text-gray-700">
-                       <strong>Start now (Use my current location)</strong> is ideal when you are already out
-                       in the city and want the tour to begin where you are standing.
-                       <br/><br/>
-                       <strong>Plan for later (Suggest a good starting area)</strong> is useful when you are
-                       planning ahead. Curated Tours will find a tight cluster of places for your chosen
-                       collection and recommend a clear starting area.
-                    </p>
+      <h3 class="text-sm font-semibold text-gray-900 mt-3">3. Set how far and how long</h3>
+      <p class="text-sm text-gray-700">
+        Use the <strong>Radius</strong> slider to tell Curated Tours how far
+        you’re happy to walk from the starting area. Then use
+        <strong>Stops</strong> to choose how many places you’d like to visit.
+      </p>
+      <p class="text-sm text-gray-700">
+        I’ll scan all the locations in that city and collection, then choose a
+        starting point that <strong>maximises the variety of stops within the
+        radius you set</strong>. From there, I’ll build a cluster of nearby
+        places for a compact, interesting walk.
+      </p>
 
-                    <h3 class="text-sm font-semibold text-gray-900 mt-3">4. Fine-tune your walk</h3>
-                    <p class="text-sm text-gray-700">
-                        Use the <strong>Radius</strong> slider to decide how far Curated Tours
-                        should look for places of interest around your starting point, and
-                        <strong>Stops</strong> to choose how many places you’d like to visit.
-                    </p>
+      <h3 class="text-sm font-semibold text-gray-900 mt-3">4. Preview your Curated Tour</h3>
+      <p class="text-sm text-gray-700">
+        Tap <strong>Begin planning your Curated Tour</strong> to see a
+        preview. You’ll get:
+      </p>
+      <ul class="list-disc list-inside text-sm text-gray-700 space-y-1">
+        <li>A list of the stops I’ve chosen for your collection.</li>
+        <li>An <strong>approximate distance</strong> for the full walk.</li>
+        <li>An <strong>approximate duration</strong>, including walking time and
+            a few minutes at each stop.</li>
+        <li>The <strong>tour price</strong> for this route.</li>
+      </ul>
+      <p class="text-sm text-gray-700">
+        Behind the scenes, Curated Tours <strong>optimises the order of your
+        stops</strong> so the walk is as streamlined and sensible as possible,
+        rather than just zig-zagging around the map.
+      </p>
 
-                    <h3 class="text-sm font-semibold text-gray-900 mt-3">5. Explore and tweak</h3>
-                    <p class="text-sm text-gray-700">
-                        Tap <strong>Generate Walking Tour</strong> to see your route.
-                        You can mark any stop as <strong>Remove</strong> to swap it for
-                        another nearby place of interest, or remove it altogether if you want a shorter tour.
-                    </p>
+      <h3 class="text-sm font-semibold text-gray-900 mt-3">5. Fine-tune before you pay</h3>
+      <p class="text-sm text-gray-700">
+        On the preview screen you can tick any stops you’re not keen on. When
+        you tap <strong>Replace selected stops</strong>, I’ll look for
+        alternatives nearby within your radius and update the route. If there
+        aren’t enough alternatives, I’ll let you know and the tour may be
+        slightly shorter.
+      </p>
+      <p class="text-sm text-gray-700">
+        Once you’re happy, tap <strong>Let’s get going</strong> to move to the
+        start screen for your paid tour, or choose
+        <strong>Save this Curated Tour for later</strong> to store it in the
+        <strong>Saved</strong> tab on your device.
+      </p>
 
-                    <h3 class="text-sm font-semibold text-gray-900 mt-3">6. Walk the route</h3>
-                    <p class="text-sm text-gray-700">
-                       Use the cards to read about each place of interest, tap
-                       <strong>Listen</strong> for spoken audio, and use
-                       <strong>Start in Google Maps</strong> for turn-by-turn directions from
-                       wherever you are. If you planned a tour around an address, you can also
-                       use <strong>Preview route near planned start</strong> to see how long
-                       the walk looks from that area.
-                    </p>
-                </div>
-                `;
-      },
+      <h3 class="text-sm font-semibold text-gray-900 mt-3">6. Start your tour</h3>
+      <p class="text-sm text-gray-700">
+        After payment, you’ll see a short “Before you start your Curated Tour”
+        info screen. From here you can:
+      </p>
+      <ul class="list-disc list-inside text-sm text-gray-700 space-y-1">
+        <li>Read safety tips and how the audio cues work.</li>
+        <li>Tap <strong>Got it – let’s go!</strong> to open the full route in
+            <strong>Google Maps</strong> for walking directions.</li>
+        <li>Use <strong>Share this Curated Tour</strong> to copy or send a
+            link so someone else can open the same route and purchase it
+            on their own device.</li>
+      </ul>
 
+      <h3 class="text-sm font-semibold text-gray-900 mt-3">7. Walk with audio cues</h3>
+      <p class="text-sm text-gray-700">
+        As you walk with Google Maps open, Curated Tours runs quietly in the
+        background. When you’re close to your next stop, the app can give you
+        short <strong>audio nudges</strong> such as “you’re approaching” or
+        “you’re here”, and show a banner for the stop on screen.
+      </p>
+      <p class="text-sm text-gray-700">
+        When it’s safe, switch back to Curated Tours to see the stop card and
+        tap <strong>Listen</strong>. The full story will be read aloud using
+        text-to-speech, but only when you are physically near that stop – this
+        keeps the experience tied to the real place, not a sofa.
+      </p>
+
+      <h3 class="text-sm font-semibold text-gray-900 mt-3">8. Move between stops</h3>
+      <p class="text-sm text-gray-700">
+        After each story you can:
+      </p>
+      <ul class="list-disc list-inside text-sm text-gray-700 space-y-1">
+        <li>Tap <strong>Continue to next stop</strong> to update your route in
+            Google Maps and carry on.</li>
+        <li>Tap <strong>Back to previous</strong> if you want to revisit the
+            last location.</li>
+        <li>Tap <strong>Skip this stop</strong> to miss one out and re-route
+            to the next place.</li>
+        <li>Tap <strong>Stop tour &amp; save progress</strong> if you need a
+            break – you can resume later from the <strong>Saved</strong> tab.</li>
+      </ul>
+
+      <h3 class="text-sm font-semibold text-gray-900 mt-3">9. Saved and shared tours</h3>
+      <p class="text-sm text-gray-700">
+        Every paid tour is stored in <strong>Saved</strong>, so you can come
+        back to it on another day. From there you can:
+      </p>
+      <ul class="list-disc list-inside text-sm text-gray-700 space-y-1">
+        <li>Re-open a tour and start the walk again.</li>
+        <li>See which tours are <strong>locked</strong> or
+            <strong>unlocked</strong> at a glance.</li>
+        <li>Share a paid tour with the <strong>Share</strong> button so
+            friends or family can open the same route and buy it on their own
+            phone.</li>
+      </ul>
+
+      <p class="text-xs text-gray-500 mt-4">
+        Curated Tours doesn’t replace a live tour guide – instead, it helps you
+        discover the most interesting stories close together, then walks with
+        you, step by step, as you explore.
+      </p>
+    </div>
+  `;
+},
       renderColours: () => {
         return `
                 <div class="max-w-md mx-auto bg-white rounded-2xl shadow-md p-6 space-y-4 mt-4">
