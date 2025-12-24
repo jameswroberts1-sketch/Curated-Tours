@@ -168,12 +168,12 @@
     };
 
     // --- Tour Sharing Helpers ---
+// --- Tour Sharing Helpers ---
+// v2: only share stop IDs + light metadata, not full bios
 const TourSharing = {
   encodeTourForUrl(tour) {
-    // Keep payload lean for shorter URLs
     const payload = {
-      v: 1,
-      name: tour.name || `${tour.cityName || 'Tour'} walk`,
+      v: 2,
       cityName: tour.cityName || '',
       isPlanned: !!tour.isPlanned,
       startHint: tour.startHint || '',
@@ -181,31 +181,22 @@ const TourSharing = {
       walkMinutes: tour.walkMinutes || 0,
       totalMinutes: tour.totalMinutes || 0,
       price: tour.price || 0,
-      plaques: (tour.plaques || []).map((p, idx) => ({
-        id: String(p.id),
-        title: p.title,
-        address: p.address,
-        latitude: p.latitude,
-        longitude: p.longitude,
-        summary: p.summary,
-        bio: p.bio,
-        category: p.category,
-        stopNumber: p.stopNumber || idx + 1,
-      })),
+      // Only pass IDs, in order
+      stopIds: (tour.plaques || []).map(p => String(p.id)),
     };
 
     const json = JSON.stringify(payload);
-    const b64 = btoa(unescape(encodeURIComponent(json)));
-    return encodeURIComponent(b64);
+    const b64 = btoa(json);            // base64-encode JSON
+    return encodeURIComponent(b64);    // make it URL-safe
   },
 
   decodeTourFromUrlParam(param) {
     const b64 = decodeURIComponent(param);
-    const json = decodeURIComponent(escape(atob(b64)));
+    const json = atob(b64);
     return JSON.parse(json);
   },
 };
-
+    
     // --- Services: Geo ---
     const Geo = {
       calculateDistance: (lat1, lon1, lat2, lon2) => {
@@ -1761,45 +1752,87 @@ stopTourAndSaveProgress: () => {
         app.render();
       },
 
-            loadSharedTour: (payload) => {
-        if (!payload || !Array.isArray(payload.plaques) || !payload.plaques.length) {
-          alert('This shared tour link appears to be invalid or empty.');
-          return;
-        }
+  loadSharedTour: async (payload) => {
+  try {
+    if (!payload) {
+      alert('This shared tour link appears to be invalid or empty.');
+      return;
+    }
 
-        const plaques = payload.plaques.map((p, idx) => ({
-          ...p,
-          stopNumber: p.stopNumber || idx + 1,
-        }));
+    // Support both:
+    // - v2 links: payload.stopIds (short)
+    // - old v1 links: payload.plaques (long, but still readable)
+    let plaques = [];
 
-        state.activeTour = plaques;
-        state.candidatePlaques = [];
-        state.stops = plaques.length;
+    if (Array.isArray(payload.stopIds) && payload.stopIds.length) {
+      const ids = payload.stopIds.map(String);
 
-        state.selectedCity = payload.cityName || state.selectedCity;
-        state.isPlanned = !!payload.isPlanned;
-        state.startHint = payload.startHint || '';
+      // Make sure we have the master list loaded
+      if (!state.allPlaques || !state.allPlaques.length) {
+        const cityCfg = CITIES[state.cityIndex];
+        state.allPlaques = await Api.fetchPlaques(cityCfg.url);
+      }
 
-        state.tourDistanceMiles = payload.distanceMiles || 0;
-        state.tourWalkMinutes = payload.walkMinutes || 0;
-        state.tourTotalMinutes = payload.totalMinutes || 0;
-        state.tourPrice = payload.price || 0;
+      const idSet = new Set(ids);
+      plaques = state.allPlaques.filter(p => idSet.has(String(p.id)));
 
-        // User 2 has NOT paid yet
-        state.activeTourMeta = {
-          id: null,
-          isPaid: false,
-        };
+      // Preserve the original order from stopIds
+      plaques.sort(
+        (a, b) =>
+          ids.indexOf(String(a.id)) - ids.indexOf(String(b.id))
+      );
+    } else if (Array.isArray(payload.plaques) && payload.plaques.length) {
+      // Backwards compatibility with old (long) links
+      plaques = payload.plaques;
+    } else {
+      alert('This shared tour link appears to be invalid or empty.');
+      return;
+    }
 
-        state.currentStopIndex = 0;
-        state.unlockedStops = new Set();
-        state.nearlyThereStopId = null;
+    if (!plaques.length) {
+      alert('I couldn’t find any stops for this shared tour.');
+      return;
+    }
 
-        // Drop them on the “payment / preview” page
-        state.view = 'PREVIEW';
-        state.justNavigated = true;
-        app.render();
-      },
+    // Ensure stable numbering
+    plaques = plaques.map((p, idx) => ({
+      ...p,
+      stopNumber: p.stopNumber || idx + 1,
+    }));
+
+    state.activeTour = plaques;
+    state.candidatePlaques = [];
+    state.stops = plaques.length;
+
+    state.selectedCity = payload.cityName || state.selectedCity;
+    state.isPlanned = !!payload.isPlanned;
+    state.startHint = payload.startHint || '';
+
+    state.tourDistanceMiles = payload.distanceMiles || 0;
+    state.tourWalkMinutes = payload.walkMinutes || 0;
+    state.tourTotalMinutes = payload.totalMinutes || 0;
+    state.tourPrice = payload.price || 0;
+
+    // User 2 has NOT paid yet
+    state.activeTourMeta = {
+      id: null,
+      isPaid: false,
+    };
+
+    state.currentStopIndex = 0;
+    state.unlockedStops = new Set();
+    state.nearlyThereStopId = null;
+    state.bannerDismissedStops = new Set();
+
+    // Take them to the preview/payment screen
+    state.view = 'PREVIEW';
+    state.justNavigated = true;
+    app.render();
+  } catch (e) {
+    console.error('Error loading shared tour', e);
+    alert('Sorry, something went wrong opening this shared tour.');
+  }
+},
       
       deleteTour: (id, e) => {
         e.stopPropagation();
