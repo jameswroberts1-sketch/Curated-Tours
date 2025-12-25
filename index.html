@@ -2557,8 +2557,21 @@ app.renderNav();
   `;
 },
 
-      renderTour: () => {
-  const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
+renderTour: () => {
+  const cityName =
+    state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
+
+  // Prefer the collection (e.g. "Britpop") for the tour title.
+  // If for some reason state.collection is empty (e.g. loaded from Saved),
+  // fall back to the category on the first stop, then to the city name.
+  const collectionName =
+    state.collection ||
+    (state.activeTour[0]?.category || '');
+
+  const tourTitle = collectionName
+    ? `${collectionName} Tour`
+    : `${cityName} Tour`;
+
   const isPaidTour = !!(state.activeTourMeta && state.activeTourMeta.isPaid);
 
   const startNote =
@@ -2598,8 +2611,10 @@ app.renderNav();
     <div class="pb-32">
       <div class="flex items-center justify-center mb-4">
         <div class="text-center">
-          <h2 class="text-lg font-bold text-gray-900">${cityName} Tour</h2>
-          <p class="text-xs text-gray-500">${state.activeTour.length} Locations</p>
+          <h2 class="text-lg font-bold text-gray-900">${tourTitle}</h2>
+          <p class="text-xs text-gray-500">
+            ${cityName ? cityName + ' · ' : ''}${state.activeTour.length} Locations
+          </p>
         </div>
       </div>
 
