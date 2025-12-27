@@ -705,7 +705,7 @@
    "id": 20,
    "machine_tag": "",
    "title": "The Laurel Tree",
-   "inscription": "You’re standing on a pretty ordinary Camden corner. Brick building, tall windows, the ghost of pub signage around the ground floor. If you didn’t know better, you’d just walk past it on your way to the markets or the tube.\n\nBut for a few years in the 1990s, the small upstairs room above your head was being called “the club that changed the world.”\n\nWelcome to 113 Bayham Street – once The Laurel Tree. If Britpop had a living room, this might well have been it.",
+   "inscription": "Welcome to 113 Bayham Street – once The Laurel Tree. If Britpop had a living room, this might well have been it.",
    "latitude": 51.53848234,
    "longitude": -0.140923893,
    "country": "",
@@ -783,7 +783,7 @@
    "id": 22,
    "machine_tag": "",
    "title": "Dublin Castle",
-   "inscription": "The Dublin Castle is a narrow Victorian pub front: red paintwork, old brick above, a strip of windows with gig posters peeling a little at the corners. There might be a few smokers huddled by the doorway, pints in hand, talking too loudly for the size of the pavement, and yet, from Irish navvies to Madness, Britpop and Amy Winehouse, this tiny pub has launched more careers than some record labels.",
+   "inscription": "From Irish navvies to Madness, Britpop and Amy Winehouse – this tiny pub has launched more careers than some record labels.",
    "latitude": 51.53746406,
    "longitude": -0.145580584,
    "country": "",
@@ -861,7 +861,7 @@
    "id": 24,
    "machine_tag": "",
    "title": "Camden Palace (now KOKO)",
-   "inscription": "You could be forgiven for thinking that you’re standing outside a slightly over-dressed nightclub – white façade, fancy dome, big KOKO sign – at one of the noisiest junctions in Camden. Buses roar past, someone’s vape cloud drifts by… and yet this corner has been a stage for more than a century of music, comedy and chaos.\n\nThis isn’t just a club. It’s a shape-shifter. One dome, a hundred and twenty-odd years of different scenes.",
+   "inscription": "Under the Dome: From Opera to Britpop at Camden Palace.",
    "latitude": 51.53488565,
    "longitude": -0.138179008,
    "country": "",
@@ -900,7 +900,7 @@
    "id": 25,
    "machine_tag": "",
    "title": "Food Records office",
-   "inscription": "Behind these fairly anonymous windows, in the 1990s, people were deciding which songs would end up stuck in your head for months at a time.\n\nThis is 172A Arlington Road – once the home of Food Records, the label that signed Blur and helped turn Britpop from a scruffy idea into a full-blown moment in British culture.",
+   "inscription": "From down here it just looks like another office, but in the 1990s, the decisions made behind these windows helped define the sound of a decade.",
    "latitude": 51.53884357,
    "longitude": -0.143932674,
    "country": "",
@@ -1095,7 +1095,7 @@
    "id": 30,
    "machine_tag": "",
    "title": "Abbey Road Studios",
-   "inscription": "On the face of it, you’re on a quiet, posh London street where the loudest thing is a taxi honking at tourists on the crossing. \nYet some of the noisiest, most opinion-splitting albums of the 1990s were born just behind that modest white façade.\n\nFor Oasis, Radiohead and the rest, Abbey Road wasn’t a museum. It was a proving ground.",
+   "inscription": "This isn’t just Beatles ground; it’s where Britpop came to see if it belonged in the same family tree.",
    "latitude": 51.53214368,
    "longitude": -0.177085277,
    "country": "",
@@ -3705,6 +3705,7 @@
     "status": "draft"
   }
 ]
+
 
 
 
