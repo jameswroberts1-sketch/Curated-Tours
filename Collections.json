@@ -666,7 +666,7 @@
    "id": 19,
    "machine_tag": "",
    "title": "The Good Mixer",
-   "inscription": "You’re standing outside one of the unlikeliest landmarks in British music history.\n\nRight here, at this corner pub, a guitarist walks in. At the bar he meets his chart rival. There’s a bit of small talk, a bit of beer, and then supposedly, one legendary line:\n\n“Nice music,” he says. “Shit clothes.”\n\nIt’s the kind of off-hand insult that could have been forgotten in five minutes – except this is the 1990s, the bands are Blur and Oasis, and the music press is desperate for a feud. Whether it happened exactly that way or not, this little pub gets written into the creation myth of Britpop.\n\nAnd you’re standing right outside it.",
+   "inscription": "The pub where one off-hand insult supposedly helped launch the most famous feud in Britpop…Nice music, shit clothes.",
    "latitude": 51.53961818,
    "longitude": -0.144582392,
    "country": "",
@@ -744,7 +744,7 @@
    "id": 21,
    "machine_tag": "",
    "title": "Dingwalls",
-   "inscription": "On the edge of Regent’s Canal, just by Hampstead Road Lock, stands a fairly ordinary-looking brick warehouse with “T.E. Dingwall” fading high on the wall.\n\nIt doesn’t look like much.\n\nAnd yet, in the dark room behind those doors, only a few hundred people at a time have watched Pulp, Blur, Oasis, Blondie, The Clash, Foo Fighters, Coldplay – and plenty more – before they were too big for anywhere this small. This is Dingwalls: 500 people, world-famous bands, and a lot of sticky floors in between.",
+   "inscription": "In the space behind those doors, bands like Pulp, Blur, Oasis, Blondie, The Clash, Foo Fighters, Coldplay have all played to crowds not much bigger than a school assembly.",
    "latitude": 51.54134581,
    "longitude": -0.145759299,
    "country": "",
@@ -822,7 +822,7 @@
    "id": 23,
    "machine_tag": "",
    "title": "The Falcon",
-   "inscription": "For a chunk of the late 80s and 90s, this unassuming corner – The Falcon, or Camden Falcon – was one of the loudest, most influential shoeboxes in British guitar music. In a space that barely held 150 people, bands like Blur, Pulp, Suede, Lush, The Verve, Super Furry Animals and a very young Coldplay all sweated it out on a tiny back-room stage.",
+   "inscription": "The little back-room that punched way above its weight.",
    "latitude": 51.5435345,
    "longitude": -0.139369396,
    "country": "",
@@ -939,7 +939,7 @@
    "id": 26,
    "machine_tag": "",
    "title": "Creation Records HQ",
-   "inscription": "This is Regent’s Park Road, right in the heart of Primrose Hill’s very respectable “village”. Dog walkers, prams, expensive haircuts… and in front of you, 109: a modest, pale building with arched windows that looks like it should house a yoga studio, a design agency, or maybe a discreet accountant.\n\nWhat it actually housed, in the 1990s, was one of the loudest addresses in British music. From behind this quiet doorway, a scrappy indie label called Creation Records helped blow Britpop into the mainstream – and turned a bunch of Manchester chancers called Oasis into the biggest band in the country.",
+   "inscription": "From this doorway, the label that signed Oasis helped blow Britpop into the mainstream.",
    "latitude": 51.54236563,
    "longitude": -0.1562292,
    "country": "",
@@ -978,7 +978,7 @@
    "id": 27,
    "machine_tag": "",
    "title": "Pembroke Castle",
-   "inscription": "Picture this: two drinkers walking into the same pub, a hundred years apart.\nOne’s a railway navvy, hands black with soot, pockets jangling with a week’s wages. The other’s a 1990s guitarist with Liam Gallagher hair and yesterday’s NME stuffed in his coat.\nThis is where both of them would have pushed in, shoulder to shoulder with London’s latest obsession. Same doorway, different soundtrack.",
+   "inscription": "Local pub for the Gallagher brothers.",
    "latitude": 51.54272193,
    "longitude": -0.154963196,
    "country": "",
@@ -1017,7 +1017,7 @@
    "id": 28,
    "machine_tag": "",
    "title": "Supernova Heights",
-   "inscription": "The famous “Supernova Heights” sign above the door is gone in current estate photos; to a passer-by it reads as a very nice but not obviously rock-and-roll family house. However, this Georgian townhouse at 9 Steele’s Rd Belsize Park, became globally famous in the late 1990's as Noel Gallagher’s London home and an epicentre of Britpop-era partying.",
+   "inscription": "Noel Gallagher’s famous party house.",
    "latitude": 51.54548898,
    "longitude": -0.159479999,
    "country": "",
@@ -1056,7 +1056,7 @@
    "id": 29,
    "machine_tag": "",
    "title": "Noel’s first Camden flat",
-   "inscription": "Noel Gallagher’s first home in Camden. Before Supernova Heights, before the celebrity parties and tabloid nicknames, this was the London foothold: a rented flat he shared with Meg Matthews, while Oasis were right on the brink of becoming huge.",
+   "inscription": "One Tuesday morning, with a brutal hangover, the phone rang and Noel Gallagher’s life changed in a single sentence.",
    "latitude": 51.53632555,
    "longitude": -0.143026346,
    "country": "",
@@ -3705,6 +3705,7 @@
     "status": "draft"
   }
 ]
+
 
 
 
