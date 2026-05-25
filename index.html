@@ -155,6 +155,7 @@
       currentStopIndex: 0,     // which stop is "next" on the tour
       toast: null,             // small confirmation message (e.g. after skipping)
       catalogError: null,
+      visibleStoryIds: new Set(),
       tourDistanceMiles: 0,
       tourWalkMinutes: 0,
       tourTotalMinutes: 0,
@@ -379,6 +380,18 @@ const TourSharing = {
         if (waypoints) url += `&waypoints=${waypoints}`;
 
         return url;
+      },
+
+      generateMapsPointUrl: (loc) => {
+        if (
+          !loc ||
+          !Number.isFinite(loc.latitude) ||
+          !Number.isFinite(loc.longitude)
+        ) {
+          return '';
+        }
+
+        return `https://www.google.com/maps/search/?api=1&query=${loc.latitude},${loc.longitude}`;
       },
 
       // find densest cluster of plaques within a radius
@@ -1136,6 +1149,29 @@ speak: async (plaqueId) => {
         app.render();
       },
 
+      manualUnlockStop: (plaqueId) => {
+        if (!state.unlockedStops) state.unlockedStops = new Set();
+        if (!state.bannerDismissedStops) state.bannerDismissedStops = new Set();
+
+        state.unlockedStops.add(plaqueId);
+        state.bannerDismissedStops.add(plaqueId);
+        if (state.nearlyThereStopId === plaqueId) {
+          state.nearlyThereStopId = null;
+        }
+        app.showToast('Audio unlocked for this stop.');
+      },
+
+      toggleStoryText: (plaqueId) => {
+        if (!state.visibleStoryIds) state.visibleStoryIds = new Set();
+
+        if (state.visibleStoryIds.has(plaqueId)) {
+          state.visibleStoryIds.delete(plaqueId);
+        } else {
+          state.visibleStoryIds.add(plaqueId);
+        }
+        app.render();
+      },
+
       toggleAutoPlay: () => {
         state.isAutoPlay = !state.isAutoPlay;
         if (state.isAutoPlay) app.startAudioWatch();
@@ -1564,6 +1600,7 @@ stopTourAndSaveProgress: () => {
     state.unlockedStops = new Set();
     state.nearlyThereStopId = null;
     state.bannerDismissedStops = new Set();
+    state.visibleStoryIds = new Set();
 
     // 4. Compute a friendly startHint
     try {
@@ -1762,6 +1799,7 @@ stopTourAndSaveProgress: () => {
         state.currentStopIndex = 0;
         state.nearlyThereStopId = null;
         state.bannerDismissedStops = new Set();
+        state.visibleStoryIds = new Set();
 
         // IMPORTANT: Only jump straight into the full tour if it’s paid
         state.view = tour.isPaid ? 'TOUR' : 'PREVIEW';
@@ -1841,6 +1879,7 @@ stopTourAndSaveProgress: () => {
     state.unlockedStops = new Set();
     state.nearlyThereStopId = null;
     state.bannerDismissedStops = new Set();
+    state.visibleStoryIds = new Set();
 
     // Take them to the preview/payment screen
     state.view = 'PREVIEW';
@@ -2389,9 +2428,9 @@ app.renderNav();
         const startLabel = state.isPlanned
           ? (state.startHint || 'the suggested starting area')
           : 'your current location';
-        const alphaStops = [...state.activeTour]
-          .slice()
-          .sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+        const orderedStops = [...state.activeTour];
+        const routePreviewUrl = Geo.generateMapsPreviewUrl(state.activeTour);
+        const startAreaUrl = Geo.generateMapsPointUrl(state.userLocation);
         const hasMarkedForReplace = state.planningMarkedForReplace.size > 0;
 
         return `
@@ -2412,6 +2451,23 @@ app.renderNav();
           stops that match your chosen collection.
         </p>
 
+        <div class="bg-blue-50 border border-blue-100 rounded-xl p-3 space-y-2">
+          <p class="text-xs font-semibold text-plaque-blue uppercase tracking-wide">
+            Suggested start
+          </p>
+          <p class="text-sm text-gray-800">
+            Start near <span class="font-semibold">${escapeHtml(startLabel)}</span>. The route below is already ordered for a compact walk from that area.
+          </p>
+          <div class="flex flex-col gap-2 sm:flex-row">
+            ${startAreaUrl
+              ? `<a href="${escapeHtml(startAreaUrl)}" target="_blank" class="flex-1 bg-white border border-blue-200 text-plaque-blue text-sm font-semibold py-2.5 px-3 rounded-lg text-center hover:bg-blue-50">Open start area</a>`
+              : ''}
+            ${routePreviewUrl
+              ? `<a href="${escapeHtml(routePreviewUrl)}" target="_blank" class="flex-1 bg-white border border-blue-200 text-plaque-blue text-sm font-semibold py-2.5 px-3 rounded-lg text-center hover:bg-blue-50">Preview route</a>`
+              : ''}
+          </div>
+        </div>
+
         ${stopCount > 0
             ? `
         <!-- Planning summary: choose stops to replace -->
@@ -2425,7 +2481,7 @@ app.renderNav();
           </p>
 
           <div class="space-y-1">
-            ${alphaStops.map(p => `
+            ${orderedStops.map((p, index) => `
                 <label
   class="flex items-start gap-3 px-2 py-2 rounded-lg cursor-pointer
          ${state.planningMarkedForReplace.has(p.id)
@@ -2438,10 +2494,11 @@ app.renderNav();
                     ${state.planningMarkedForReplace.has(p.id) ? 'checked' : ''}
                   >
                   <div class="flex-1">
-                    <div class="flex justify-between items-baseline">
+                    <div class="flex justify-between items-baseline gap-3">
                       <span class="text-sm font-semibold text-gray-900">
-                        ${escapeHtml(p.title)}
+                        ${index + 1}. ${escapeHtml(p.title)}
                       </span>
+                      <span class="text-[0.65rem] text-gray-400 font-semibold uppercase whitespace-nowrap">Stop ${index + 1}</span>
                     </div>
                     ${p.summary
                 ? `<p class="text-xs text-gray-600 mt-0.5 break-words">${escapeHtml(p.summary)}</p>`
@@ -2693,6 +2750,10 @@ renderCard: (plaque, index, total) => {
     isSel && canEditTour ? 'border-red-500 bg-red-50' : 'border-plaque-blue';
 
   const canGoBack = (state.currentStopIndex || 0) > 0;
+  const isUnlocked = !!(state.unlockedStops && state.unlockedStops.has(plaque.id));
+  const hasStoryText = !!(plaque.bio || plaque.summary);
+  const isStoryVisible = !!(state.visibleStoryIds && state.visibleStoryIds.has(plaque.id));
+  const storyText = plaque.bio || plaque.summary || '';
 
   return `
     <div id="card-${escapeHtml(plaque.id)}"
@@ -2760,6 +2821,44 @@ renderCard: (plaque, index, total) => {
             ${Icons.Speaker}
             <span>${isCurrentAudio && isPlaying ? 'Restart audio' : 'Listen'}</span>
           </button>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            ${!isUnlocked
+              ? `
+            <button
+              type="button"
+              onclick="app.manualUnlockStop(${jsString(plaque.id)})"
+              class="w-full py-2 px-3 rounded-lg border border-yellow-300 bg-yellow-50
+                     text-yellow-900 text-xs font-semibold hover:bg-yellow-100"
+            >
+              UAT: unlock audio here
+            </button>
+            `
+              : ''}
+            ${hasStoryText
+              ? `
+            <button
+              type="button"
+              onclick="app.toggleStoryText(${jsString(plaque.id)})"
+              class="w-full py-2 px-3 rounded-lg border border-gray-300 bg-white
+                     text-gray-800 text-xs font-semibold hover:bg-gray-50"
+            >
+              ${isStoryVisible ? 'Hide story text' : 'Read story text'}
+            </button>
+            `
+              : ''}
+          </div>
+
+          ${isStoryVisible
+            ? `
+          <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 max-h-72 overflow-y-auto">
+            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+              Story text
+            </p>
+            <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">${escapeHtml(storyText)}</p>
+          </div>
+          `
+            : ''}
 
           <!-- Pause/Resume + Stop audio (only when this card is active) -->
           ${
