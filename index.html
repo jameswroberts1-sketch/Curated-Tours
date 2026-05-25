@@ -55,7 +55,7 @@
 
       <!-- Centre logo + tagline -->
       <div class="flex-1 flex flex-col items-center cursor-pointer" onclick="app.goHome()">
-        <img src="https://raw.githubusercontent.com/jameswroberts1-sketch/Curated-Tours/refs/heads/main/Logo.jpg"
+        <img src="Logo.jpg"
           alt="Curated Tours logo" class="h-32 w-auto object-contain" onerror="this.style.display='none';">
         <!-- Keep the tagline for now -->
         <p class="text-sm text-gray-500 mt-2">
@@ -93,7 +93,7 @@
     const CITIES = [
       {
         name: 'Collections',
-        url: 'https://raw.githubusercontent.com/jameswroberts1-sketch/Curated-Tours/refs/heads/main/Collections.json',
+        url: 'Collections.json',
         defaultLat: 51.5074,
         defaultLng: -0.1278,
         exampleAddress: 'Camden or Marylebone etc.'
@@ -154,6 +154,7 @@
       isSpeechPaused: false,
       currentStopIndex: 0,     // which stop is "next" on the tour
       toast: null,             // small confirmation message (e.g. after skipping)
+      catalogError: null,
       tourDistanceMiles: 0,
       tourWalkMinutes: 0,
       tourTotalMinutes: 0,
@@ -166,6 +167,16 @@
       planningMarkedForReplace: new Set(),
       justNavigated: false,
     };
+
+    const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    }[char]));
+
+    const jsString = (value) => escapeHtml(JSON.stringify(String(value ?? '')));
 
     // --- Tour Sharing Helpers ---
 // --- Tour Sharing Helpers ---
@@ -489,6 +500,9 @@ const TourSharing = {
     const Api = {
       fetchPlaques: async (url) => {
         const res = await fetch(url);
+        if (!res.ok) {
+          throw new Error(`Could not load tour catalogue (${res.status})`);
+        }
         const data = await res.json();
 
         return data.map((item, idx) => ({
@@ -1354,6 +1368,7 @@ continueToNext: (plaqueId) => {
         const cityCfg = CITIES[state.cityIndex]; // still just the Collections.json entry
 
         try {
+          state.catalogError = null;
           const plaques = await Api.fetchPlaques(cityCfg.url);
           state.allPlaques = plaques;
 
@@ -1387,6 +1402,9 @@ continueToNext: (plaqueId) => {
           if (state.view === 'HOME') app.render();
         } catch (e) {
           console.error(e);
+          state.catalogError =
+            'I could not load the tour catalogue. Check that Collections.json is available next to index.html, then refresh the page.';
+          if (state.view === 'HOME') app.render();
         }
       },
 
@@ -1853,7 +1871,7 @@ stopTourAndSaveProgress: () => {
         }
 
         if (!tour.isPaid) {
-          alert('You can only share a tour after it has been paid for.');
+          alert('You can only share a tour after it has been unlocked.');
           return;
         }
 
@@ -1870,7 +1888,7 @@ stopTourAndSaveProgress: () => {
         if (navigator.share) {
           navigator.share({
             title: tour.name || 'Curated Tour',
-            text: 'Here’s a Curated Tours route I made – open this link to view and purchase it.',
+            text: 'Here’s a Curated Tours route I made – open this link to view and demo unlock it.',
             url: shareUrl,
           }).catch(err => {
             console.log('Share cancelled or failed', err);
@@ -1894,7 +1912,7 @@ stopTourAndSaveProgress: () => {
       shareActiveTourFromInfo: () => {
         const meta = state.activeTourMeta || {};
         if (!meta.id || !meta.isPaid) {
-          alert('You can only share a tour after it has been paid for and saved.');
+          alert('You can only share a tour after it has been unlocked and saved.');
           return;
         }
         app.shareTour(meta.id);
@@ -2027,7 +2045,7 @@ updateActionBar: () => {
     html += `
       <div class="fixed top-16 left-0 right-0 z-40 flex justify-center pointer-events-none">
         <div class="bg-gray-900 text-white text-xs px-3 py-2 rounded-full shadow-md pointer-events-auto">
-          ${state.toast}
+          ${escapeHtml(state.toast)}
         </div>
       </div>`;
   }
@@ -2037,7 +2055,7 @@ updateActionBar: () => {
       <div class="mb-6 mt-4 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
         <div class="flex">
           <div class="ml-3">
-            <p class="text-sm text-red-700">${state.error}</p>
+            <p class="text-sm text-red-700">${escapeHtml(state.error)}</p>
           </div>
         </div>
       </div>`;
@@ -2079,7 +2097,7 @@ app.renderNav();
 },
 
   renderStartInfo: () => {
-  const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
+  const cityName = escapeHtml(state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour'));
   const stopCount = state.activeTour ? state.activeTour.length : 0;
 
   return `
@@ -2164,7 +2182,7 @@ app.renderNav();
 },
 
       renderOutro: () => {
-  const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
+  const cityName = escapeHtml(state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour'));
   const stopCount = state.activeTour ? state.activeTour.length : 0;
 
   return `
@@ -2252,9 +2270,15 @@ app.renderNav();
       },
 
       renderHome: () => {
+  const canGenerate = !state.loading && state.availableCities.length && state.availableCollections.length && !state.catalogError;
+
   return `
     <div class="w-full max-w-md mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 mt-0">
       <form onsubmit="app.generateTour(event)" class="p-6 space-y-6">
+
+        ${state.catalogError
+          ? `<div class="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">${escapeHtml(state.catalogError)}</div>`
+          : ''}
 
         <!-- 1. City -->
         <div>
@@ -2266,7 +2290,7 @@ app.renderNav();
             ${
               state.availableCities.length
                 ? state.availableCities
-                    .map(city => `<option value="${city}" ${city === state.selectedCity ? 'selected' : ''}>${city}</option>`)
+                    .map(city => `<option value="${escapeHtml(city)}" ${city === state.selectedCity ? 'selected' : ''}>${escapeHtml(city)}</option>`)
                     .join('')
                 : '<option disabled>Loading cities…</option>'
             }
@@ -2285,7 +2309,7 @@ app.renderNav();
             ${
               state.availableCollections.length
                 ? state.availableCollections
-                    .map(c => `<option value="${c}" ${c === state.collection ? 'selected' : ''}>${c}</option>`)
+                    .map(c => `<option value="${escapeHtml(c)}" ${c === state.collection ? 'selected' : ''}>${escapeHtml(c)}</option>`)
                     .join('')
                 : '<option disabled>Select a city first…</option>'
             }
@@ -2329,7 +2353,7 @@ app.renderNav();
         <!-- 4. Generate -->
         <button
           type="submit"
-          ${state.loading ? 'disabled' : ''}
+          ${canGenerate ? '' : 'disabled'}
           class="w-full bg-plaque-blue hover:bg-blue-900 text-white font-bold py-4 rounded-xl shadow-lg transition disabled:opacity-70 flex justify-center items-center"
         >
           ${state.loading ? 'Planning your tour…' : 'Begin planning your Curated Tour'}
@@ -2349,6 +2373,7 @@ app.renderNav();
 
       renderPreview: () => {
         const cityName = state.selectedCity || (CITIES[state.cityIndex]?.name || 'Tour');
+        const safeCityName = escapeHtml(cityName);
         const stopCount = state.activeTour.length;
         const radius = state.radius;
         const distanceMiles = state.tourDistanceMiles || 0;
@@ -2373,7 +2398,7 @@ app.renderNav();
     <div class="pb-28">
       <div class="max-w-md mx-auto bg-white rounded-2xl shadow-xl border border-gray-100 p-6 space-y-4 mt-4">
         <h1 class="text-xl font-extrabold text-gray-900 mb-1">
-          Your Curated Tour of ${cityName}
+          Your Curated Tour of ${safeCityName}
         </h1>
      
         <p class="text-sm text-gray-700">
@@ -2381,7 +2406,7 @@ app.renderNav();
         </p>
 
         <p class="text-sm text-gray-700">
-          Based on <span class="font-semibold">${startLabel}</span> and a search radius of
+          Based on <span class="font-semibold">${escapeHtml(startLabel)}</span> and a search radius of
           <span class="font-semibold">${radius.toFixed(1)} miles</span>,
           I’ve identified <span class="font-semibold">${stopCount}</span>
           stops that match your chosen collection.
@@ -2396,7 +2421,7 @@ app.renderNav();
           </h2>
           <p class="text-xs text-gray-500 mb-3">
             Please feel free to review this list and tick any stops you’d like me to swap for alternatives nearby.
-            Just check the box next to any place you’re less interested in, and I’ll look for a better fit before you pay.
+            Just check the box next to any place you’re less interested in, and I’ll look for a better fit before you unlock.
           </p>
 
           <div class="space-y-1">
@@ -2409,17 +2434,17 @@ app.renderNav();
                   <input
                     type="checkbox"
                     class="mt-1 w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
-                    onchange="app.togglePlanningReplace('${p.id}', this.checked)"
+                    onchange="app.togglePlanningReplace(${jsString(p.id)}, this.checked)"
                     ${state.planningMarkedForReplace.has(p.id) ? 'checked' : ''}
                   >
                   <div class="flex-1">
                     <div class="flex justify-between items-baseline">
                       <span class="text-sm font-semibold text-gray-900">
-                        ${p.title}
+                        ${escapeHtml(p.title)}
                       </span>
                     </div>
                     ${p.summary
-                ? `<p class="text-xs text-gray-600 mt-0.5 break-words">${p.summary}</p>`
+                ? `<p class="text-xs text-gray-600 mt-0.5 break-words">${escapeHtml(p.summary)}</p>`
                 : ''
               }
                   </div>
@@ -2463,13 +2488,13 @@ app.renderNav();
         <!-- Price -->
         <div class="mt-4 bg-yellow-50 border border-yellow-200 rounded-xl p-3">
           <p class="text-xs font-semibold text-yellow-800 uppercase tracking-wide">
-            Tour price
+            Demo unlock price
           </p>
           <p class="mt-1 text-2xl font-extrabold text-gray-900">
             £${state.tourPrice.toFixed(2)}
           </p>
           <p class="mt-1 text-xs text-gray-600">
-            One-off payment for this Curated Tour on your device.
+            UAT demo only. No real payment is taken in this prototype.
           </p>
         </div>
 
@@ -2486,7 +2511,7 @@ app.renderNav();
           Replace selected stops
         </button>
         <p class="text-xs text-gray-500 text-center">
-          Once you’re happy with the line-up, you’ll see the payment and “start tour” options here.
+          Once you’re happy with the line-up, you’ll see the demo unlock and start tour options here.
         </p>
       `
       : `
@@ -2494,7 +2519,7 @@ app.renderNav();
           onclick="app.goToPaidTour()"
           class="w-full bg-plaque-blue hover:bg-blue-900 text-white font-bold py-3 rounded-xl shadow-md transition-colors flex items-center justify-center gap-2"
         >
-          Let’s get going
+          Demo unlock this tour
         </button>
 
         <button
@@ -2534,7 +2559,7 @@ app.renderNav();
           Upcoming stop
         </p>
         <h2 class="text-lg font-bold text-gray-900 mb-2">
-          ${plaque.title}
+          ${escapeHtml(plaque.title)}
         </h2>
         <p class="text-sm text-gray-800 mb-2">
           You’re very close to this stop. Slow down and get yourself into a safe,
@@ -2547,7 +2572,7 @@ app.renderNav();
         </p>
         <button
           type="button"
-          onclick="app.confirmArrivedAtStop('${plaque.id}')"
+          onclick="app.confirmArrivedAtStop(${jsString(plaque.id)})"
           class="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-full bg-plaque-blue text-white text-sm font-semibold shadow-sm hover:bg-blue-900 transition-colors"
         >
           I’m here – show this stop
@@ -2571,6 +2596,8 @@ renderTour: () => {
   const tourTitle = collectionName
     ? `${collectionName} Tour`
     : `${cityName} Tour`;
+  const safeCityName = escapeHtml(cityName);
+  const safeTourTitle = escapeHtml(tourTitle);
 
   const isPaidTour = !!(state.activeTourMeta && state.activeTourMeta.isPaid);
 
@@ -2582,7 +2609,7 @@ renderTour: () => {
         <p>
           This tour has been centred on a cluster of places for this collection.
           Begin your walk near
-          <span class="font-semibold">${state.startHint || 'the suggested starting point'}</span>,
+          <span class="font-semibold">${escapeHtml(state.startHint || 'the suggested starting point')}</span>,
           then follow the stops in order.
         </p>
       </div>
@@ -2611,9 +2638,9 @@ renderTour: () => {
     <div class="pb-32">
       <div class="flex items-center justify-center mb-4">
         <div class="text-center">
-          <h2 class="text-lg font-bold text-gray-900">${tourTitle}</h2>
+          <h2 class="text-lg font-bold text-gray-900">${safeTourTitle}</h2>
           <p class="text-xs text-gray-500">
-            ${cityName ? cityName + ' · ' : ''}${state.activeTour.length} Locations
+            ${safeCityName ? safeCityName + ' · ' : ''}${state.activeTour.length} Locations
           </p>
         </div>
       </div>
@@ -2668,7 +2695,7 @@ renderCard: (plaque, index, total) => {
   const canGoBack = (state.currentStopIndex || 0) > 0;
 
   return `
-    <div id="card-${plaque.id}"
+    <div id="card-${escapeHtml(plaque.id)}"
          class="bg-white rounded-xl shadow-md overflow-hidden border-l-4 mb-4
                 relative group transition-all ${cardBorderClass}">
       <div class="p-5">
@@ -2684,7 +2711,7 @@ renderCard: (plaque, index, total) => {
               ${
                 plaque.category
                   ? `<span class="text-xs text-gray-500 font-bold bg-gray-100 px-2 py-0.5 rounded-full inline-block w-max">
-                       ${plaque.category}
+                       ${escapeHtml(plaque.category)}
                      </span>`
                   : ''
               }
@@ -2694,14 +2721,14 @@ renderCard: (plaque, index, total) => {
           ${/* Keep your existing Keep/Remove toggle when editable */''}
           ${canEditTour ? `
             <label class="flex items-center gap-2 cursor-pointer select-none">
-              <span id="txt-${plaque.id}"
+              <span id="txt-${escapeHtml(plaque.id)}"
                     class="text-xs font-bold uppercase ${isSel ? 'text-red-600' : 'text-gray-400 group-hover:text-gray-600'}">
                 ${isSel ? 'Remove' : 'Keep'}
               </span>
               <input
                 type="checkbox"
                 ${isSel ? 'checked' : ''}
-                onchange="app.toggleRemove('${plaque.id}', this.checked)"
+                onchange="app.toggleRemove(${jsString(plaque.id)}, this.checked)"
                 class="w-5 h-5 text-red-600 border-gray-300 rounded focus:ring-red-500"
               >
             </label>
@@ -2709,23 +2736,23 @@ renderCard: (plaque, index, total) => {
         </div>
 
         <h3 class="text-lg font-bold text-gray-900 leading-tight mb-2 mt-2 pr-2">
-          ${plaque.title}
+          ${escapeHtml(plaque.title)}
         </h3>
 
         <div class="flex items-start text-gray-500 text-sm mb-3">
           <span class="mr-1 mt-0.5">${Icons.MapPin}</span>
-          <span class="font-medium">${plaque.address}</span>
+          <span class="font-medium">${escapeHtml(plaque.address)}</span>
         </div>
 
         <p class="text-gray-600 text-sm leading-relaxed mb-4">
-          ${plaque.summary}
+          ${escapeHtml(plaque.summary)}
         </p>
 
         <div class="border-t border-gray-100 pt-3 space-y-3">
 
           <!-- Listen: primary green full-width button -->
           <button
-            onclick="app.speak('${plaque.id}')"
+            onclick="app.speak(${jsString(plaque.id)})"
             class="w-full flex items-center justify-center gap-2 py-2.5 px-3
                    bg-green-600 hover:bg-green-700 text-white rounded-lg
                    text-sm font-semibold transition-colors"
@@ -2765,7 +2792,7 @@ renderCard: (plaque, index, total) => {
           <!-- Continue: primary blue full-width button -->
           <button
             type="button"
-            onclick="app.continueToNext('${plaque.id}')"
+            onclick="app.continueToNext(${jsString(plaque.id)})"
             class="w-full py-2.5 rounded-lg bg-plaque-blue hover:bg-blue-900
                    text-white text-sm font-semibold"
           >
@@ -2795,7 +2822,7 @@ renderCard: (plaque, index, total) => {
 
               <button
                 type="button"
-                onclick="app.skipStop('${plaque.id}')"
+                onclick="app.skipStop(${jsString(plaque.id)})"
                 class="${
                   canGoBack ? 'flex-1' : 'w-full'
                 } px-3 py-2 rounded-lg bg-gray-900 text-white text-xs font-semibold
@@ -2848,18 +2875,18 @@ renderCard: (plaque, index, total) => {
               .map((tour) => {
                 const isPaid = !!tour.isPaid; // old tours default to locked
                 const padlockIcon = isPaid ? Icons.PadlockUnlocked : Icons.PadlockLocked;
-                const padlockText = isPaid ? 'Unlocked tour' : 'Locked – payment required';
+                const padlockText = isPaid ? 'Unlocked tour' : 'Locked – demo unlock required';
                 const padlockColor = isPaid ? 'text-plaque-blue' : 'text-red-500';
 
                 return `
-                    <div onclick="app.loadTour('${tour.id}')"
+                    <div onclick="app.loadTour(${jsString(tour.id)})"
                          class="bg-white p-5 rounded-xl shadow-sm border border-gray-200
                                 hover:border-plaque-blue hover:shadow-md transition-all cursor-pointer
                                 group relative">
                       <div class="flex justify-between items-start">
                         <div>
                           <h3 class="font-bold text-lg text-gray-800 group-hover:text-plaque-blue">
-                            ${tour.name || `${tour.cityName} walk`}
+                            ${escapeHtml(tour.name || `${tour.cityName} walk`)}
                           </h3>
                           <p class="text-xs text-gray-500 mt-1">
                             ${tour.isPlanned
@@ -2897,7 +2924,7 @@ renderCard: (plaque, index, total) => {
                               ? `
                               <!-- Share button (only for paid tours) -->
                               <button
-                                onclick="app.shareTour('${tour.id}', event)"
+                                onclick="app.shareTour(${jsString(tour.id)}, event)"
                                 class="px-3 py-1.5 text-xs rounded-full border border-gray-300
                                        text-gray-700 hover:bg-gray-50 flex items-center gap-1
                                        transition-colors z-10"
@@ -2911,7 +2938,7 @@ renderCard: (plaque, index, total) => {
 
                           <!-- Delete button -->
                           <button
-                            onclick="app.deleteTour('${tour.id}', event)"
+                            onclick="app.deleteTour(${jsString(tour.id)}, event)"
                             class="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50
                                    rounded-full transition-colors z-10"
                           >
@@ -3001,7 +3028,7 @@ renderCard: (plaque, index, total) => {
         <li>An <strong>approximate distance</strong> for the full walk.</li>
         <li>An <strong>approximate duration</strong>, including walking time and
             a few minutes at each stop.</li>
-        <li>The <strong>tour price</strong> for this route.</li>
+        <li>The <strong>future tour price</strong> for this route.</li>
       </ul>
       <p class="text-sm text-gray-700">
         Behind the scenes, Curated Tours <strong>optimises the order of your
@@ -3009,7 +3036,7 @@ renderCard: (plaque, index, total) => {
         rather than just zig-zagging around the map.
       </p>
 
-      <h3 class="text-sm font-semibold text-gray-900 mt-3">5. Fine-tune before you pay</h3>
+      <h3 class="text-sm font-semibold text-gray-900 mt-3">5. Fine-tune before you unlock</h3>
       <p class="text-sm text-gray-700">
         On the preview screen you can tick any stops you’re not keen on. When
         you tap <strong>Replace selected stops</strong>, I’ll look for
@@ -3018,15 +3045,15 @@ renderCard: (plaque, index, total) => {
         slightly shorter.
       </p>
       <p class="text-sm text-gray-700">
-        Once you’re happy, tap <strong>Let’s get going</strong> to move to the
-        start screen for your paid tour, or choose
+        Once you’re happy, tap <strong>Demo unlock this tour</strong> to move to the
+        start screen for your unlocked tour, or choose
         <strong>Save this Curated Tour for later</strong> to store it in the
         <strong>Saved</strong> tab on your device.
       </p>
 
       <h3 class="text-sm font-semibold text-gray-900 mt-3">6. Start your tour</h3>
       <p class="text-sm text-gray-700">
-        After payment, you’ll see a short “Before you start your Curated Tour”
+        After the demo unlock, you’ll see a short “Before you start your Curated Tour”
         info screen. From here you can:
       </p>
       <ul class="list-disc list-inside text-sm text-gray-700 space-y-1">
@@ -3034,7 +3061,7 @@ renderCard: (plaque, index, total) => {
         <li>Tap <strong>Got it – let’s go!</strong> to open the full route in
             <strong>Google Maps</strong> for walking directions.</li>
         <li>Use <strong>Share this Curated Tour</strong> to copy or send a
-            link so someone else can open the same route and purchase it
+            link so someone else can open the same route and demo unlock it
             on their own device.</li>
       </ul>
 
@@ -3069,14 +3096,14 @@ renderCard: (plaque, index, total) => {
 
       <h3 class="text-sm font-semibold text-gray-900 mt-3">9. Saved and shared tours</h3>
       <p class="text-sm text-gray-700">
-        Every paid tour is stored in <strong>Saved</strong>, so you can come
+        Every unlocked tour is stored in <strong>Saved</strong>, so you can come
         back to it on another day. From there you can:
       </p>
       <ul class="list-disc list-inside text-sm text-gray-700 space-y-1">
         <li>Re-open a tour and start the walk again.</li>
         <li>See which tours are <strong>locked</strong> or
             <strong>unlocked</strong> at a glance.</li>
-        <li>Share a paid tour with the <strong>Share</strong> button so
+        <li>Share an unlocked tour with the <strong>Share</strong> button so
             friends or family can open the same route and buy it on their own
             phone.</li>
       </ul>
