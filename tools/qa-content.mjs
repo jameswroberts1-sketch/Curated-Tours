@@ -3,8 +3,14 @@ import path from 'node:path';
 
 const filePath = process.argv[2] || 'Collections.json';
 const fullPath = path.resolve(filePath);
+const rootDir = path.dirname(fullPath);
 const raw = fs.readFileSync(fullPath, 'utf8');
 const records = JSON.parse(raw);
+const recordedAudioById = {
+  37: 'audio/id37_henley_bridge.mp3',
+  38: 'audio/id38_the_angel.mp3',
+  39: 'audio/id39_st_marys_church.mp3',
+};
 
 const issues = [];
 const warnings = [];
@@ -26,6 +32,11 @@ records.forEach((record, index) => {
   if (!String(record.lead_subject_primary_role || '').trim()) issues.push(`${label}: missing collection`);
   if (!String(record.inscription || '').trim()) warnings.push(`${label}: missing short summary/inscription`);
   if (!String(record.lead_subject_bio || '').trim()) warnings.push(`${label}: missing long audio bio`);
+  const audioFile = String(record.audio_file || recordedAudioById[record.id] || '').trim();
+  if (audioFile) {
+    const audioPath = path.resolve(rootDir, audioFile);
+    if (!fs.existsSync(audioPath)) warnings.push(`${label}: audio file not found at ${audioFile}`);
+  }
 
   if (!isFiniteNumber(record.latitude) || !isFiniteNumber(record.longitude)) {
     issues.push(`${label}: invalid latitude/longitude`);

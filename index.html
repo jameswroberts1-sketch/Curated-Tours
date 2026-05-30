@@ -112,6 +112,11 @@
     const ARRIVAL_DISTANCE_MILES = 0.003;
     const PRICE_BASE = 1.99;       // £ base
     const PRICE_PER_STOP = 0.50;   // £ per stop
+    const RECORDED_AUDIO_BY_ID = {
+      '37': 'audio/id37_henley_bridge.mp3',
+      '38': 'audio/id38_the_angel.mp3',
+      '39': 'audio/id39_st_marys_church.mp3',
+    };
 
     // --- State ---
     const state = {
@@ -152,6 +157,7 @@
       currentSpeechPlaqueId: null,
       isSpeechPlaying: false,
       isSpeechPaused: false,
+      currentAudioElement: null,
       currentStopIndex: 0,     // which stop is "next" on the tour
       toast: null,             // small confirmation message (e.g. after skipping)
       catalogError: null,
@@ -541,7 +547,12 @@ const TourSharing = {
             'No description available.',
 
           // long-form bio text – audio only
-          bio: item.lead_subject_bio || ''
+          bio: item.lead_subject_bio || '',
+          audioFile:
+            item.audio_file ||
+            item.audioFile ||
+            RECORDED_AUDIO_BY_ID[String(item.id)] ||
+            ''
         }));
       },
 
@@ -1024,7 +1035,9 @@ speak: async (plaqueId) => {
   const plaque = state.activeTour.find(p => p.id === plaqueId);
   if (!plaque) return;
 
-  if (!('speechSynthesis' in window)) {
+  const hasRecordedAudio = !!plaque.audioFile;
+
+  if (!hasRecordedAudio && !('speechSynthesis' in window)) {
     alert('Spoken audio is not supported on this device/browser.');
     return;
   }
@@ -1074,7 +1087,56 @@ speak: async (plaqueId) => {
     state.unlockedStops.add(plaqueId);
   }
 
-  // --- Actual speech logic ---
+  app.stopSpeech();
+
+  if (hasRecordedAudio) {
+    const audio = new Audio(plaque.audioFile);
+    state.currentAudioElement = audio;
+    state.currentSpeechPlaqueId = plaqueId;
+    state.isSpeechPlaying = true;
+    state.isSpeechPaused = false;
+    app.render();
+
+    audio.onended = () => {
+      if (state.currentAudioElement === audio) {
+        state.currentAudioElement = null;
+        state.isSpeechPlaying = false;
+        state.isSpeechPaused = false;
+        state.currentSpeechPlaqueId = null;
+        app.render();
+      }
+    };
+
+    audio.onerror = () => {
+      if (state.currentAudioElement === audio) {
+        state.currentAudioElement = null;
+      }
+      app.playTextToSpeech(plaque, plaqueId);
+    };
+
+    try {
+      await audio.play();
+    } catch (err) {
+      console.error('Recorded audio failed', err);
+      state.currentAudioElement = null;
+      app.playTextToSpeech(plaque, plaqueId);
+    }
+    return;
+  }
+
+  app.playTextToSpeech(plaque, plaqueId);
+},
+
+playTextToSpeech: (plaque, plaqueId) => {
+  if (!('speechSynthesis' in window)) {
+    alert('Recorded audio could not be played, and spoken audio is not supported on this device/browser.');
+    state.isSpeechPlaying = false;
+    state.isSpeechPaused = false;
+    state.currentSpeechPlaqueId = null;
+    app.render();
+    return;
+  }
+
   window.speechSynthesis.cancel();
 
   const baseText = `${plaque.title}. ${plaque.bio || plaque.summary || ''}`;
@@ -1125,23 +1187,46 @@ speak: async (plaqueId) => {
 
 
       pauseSpeech: () => {
-        if (!('speechSynthesis' in window)) return;
-        window.speechSynthesis.pause();
+        if (state.currentAudioElement) {
+          state.currentAudioElement.pause();
+        } else if ('speechSynthesis' in window) {
+          window.speechSynthesis.pause();
+        } else {
+          return;
+        }
         state.isSpeechPlaying = false;
         state.isSpeechPaused = true;
         app.render();
       },
 
       resumeSpeech: () => {
-        if (!('speechSynthesis' in window)) return;
-        window.speechSynthesis.resume();
+        if (state.currentAudioElement) {
+          state.currentAudioElement.play().catch((err) => {
+            console.error('Recorded audio resume failed', err);
+          });
+        } else if ('speechSynthesis' in window) {
+          window.speechSynthesis.resume();
+        } else {
+          return;
+        }
         state.isSpeechPlaying = true;
         state.isSpeechPaused = false;
         app.render();
       },
 
       stopSpeech: () => {
-        if (!('speechSynthesis' in window)) return;
+        if (state.currentAudioElement) {
+          state.currentAudioElement.pause();
+          state.currentAudioElement.currentTime = 0;
+          state.currentAudioElement = null;
+        }
+        if (!('speechSynthesis' in window)) {
+          state.isSpeechPlaying = false;
+          state.isSpeechPaused = false;
+          state.currentSpeechPlaqueId = null;
+          app.render();
+          return;
+        }
         window.speechSynthesis.cancel();
         state.isSpeechPlaying = false;
         state.isSpeechPaused = false;
@@ -2754,6 +2839,7 @@ renderCard: (plaque, index, total) => {
   const hasStoryText = !!(plaque.bio || plaque.summary);
   const isStoryVisible = !!(state.visibleStoryIds && state.visibleStoryIds.has(plaque.id));
   const storyText = plaque.bio || plaque.summary || '';
+  const hasRecordedAudio = !!plaque.audioFile;
 
   return `
     <div id="card-${escapeHtml(plaque.id)}"
@@ -2776,6 +2862,11 @@ renderCard: (plaque, index, total) => {
                      </span>`
                   : ''
               }
+              ${hasRecordedAudio
+                ? `<span class="text-xs text-green-700 font-bold bg-green-50 px-2 py-0.5 rounded-full inline-block w-max mt-1">
+                     Recorded audio
+                   </span>`
+                : ''}
             </div>
           </div>
 
@@ -2819,7 +2910,7 @@ renderCard: (plaque, index, total) => {
                    text-sm font-semibold transition-colors"
           >
             ${Icons.Speaker}
-            <span>${isCurrentAudio && isPlaying ? 'Restart audio' : 'Listen'}</span>
+            <span>${isCurrentAudio && isPlaying ? 'Restart audio' : hasRecordedAudio ? 'Play recorded audio' : 'Listen'}</span>
           </button>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
