@@ -6,10 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Curated Tours</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIINfQ3FovChLs7m0P9vD3P4k4M3Y6Ebb4Q=" crossorigin="">
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script>
     tailwind.config = {
       theme: {
@@ -847,9 +843,9 @@ startTourAndOpenMaps: () => {
   app.render();
   window.scrollTo(0, 0);
 
-  // 4. Start geolocation so the in-app map can follow the walk.
+  // 4. Start geolocation so the in-app route guide can follow the walk.
   app.startAudioWatch();
-  app.showToast('Tour started. Stay in Curated Tours and follow the in-app map.');
+  app.showToast('Tour started. Stay in Curated Tours and follow the route guide.');
 },
       
       markTourPaidAndSave: () => {
@@ -1067,22 +1063,11 @@ startTourAndOpenMaps: () => {
                 Object.keys(state.mapInstances || {}).forEach(key => app.destroyMap(key));
             },
 
-            renderRouteMap: (containerId, options = {}) => {
+            renderRouteDiagram: (containerId, options = {}) => {
                 const container = document.getElementById(containerId);
                 if (!container) return;
 
-                const mapKey = containerId;
-                app.destroyMap(mapKey);
-                container.innerHTML = '';
-
-                if (!window.L) {
-                    container.innerHTML = `
-                      <div class="h-full flex items-center justify-center p-4 text-center text-sm text-gray-600">
-                        In-app mapping could not load. Use the fallback Maps link for this UAT run.
-                      </div>
-                    `;
-                    return;
-                }
+                app.destroyMap(containerId);
 
                 const routeStops = (state.activeTour || [])
                     .map((p, idx) => ({ ...p, routeIndex: idx }))
@@ -1091,175 +1076,118 @@ startTourAndOpenMaps: () => {
                 if (!routeStops.length) {
                     container.innerHTML = `
                       <div class="h-full flex items-center justify-center p-4 text-center text-sm text-gray-600">
-                        This tour does not have enough coordinates to draw an in-app map.
+                        This tour does not have enough coordinates to draw the route.
                       </div>
                     `;
                     return;
                 }
 
-                const map = L.map(containerId, {
-                    zoomControl: false,
-                    scrollWheelZoom: false,
-                    tap: true,
-                });
-                state.mapInstances[mapKey] = map;
-
-                let baseLayer = null;
-                let usingFallbackTiles = false;
-                const addBaseLayer = (url, layerOptions) => {
-                    const layer = L.tileLayer(url, {
-                        maxZoom: 19,
-                        tileSize: 256,
-                        keepBuffer: 3,
-                        updateWhenIdle: true,
-                        ...layerOptions,
-                    }).addTo(map);
-
-                    layer.on('tileerror', () => {
-                        if (usingFallbackTiles) return;
-                        usingFallbackTiles = true;
-                        try {
-                            map.removeLayer(layer);
-                        } catch (err) {
-                            console.warn('Map tile fallback cleanup failed', err);
-                        }
-                        baseLayer = addBaseLayer(
-                            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-                            {
-                                attribution: 'Tiles &copy; Esri; data &copy; OpenStreetMap contributors',
-                            }
-                        );
-                    });
-
-                    return layer;
-                };
-
-                baseLayer = addBaseLayer(
-                    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-                    {
-                        subdomains: 'abcd',
-                        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-                    }
-                );
-                L.control.zoom({ position: 'bottomright' }).addTo(map);
-
-                const latLngs = routeStops.map(p => [p.latitude, p.longitude]);
-                L.polyline(latLngs, {
-                    color: '#1e3a8a',
-                    weight: 4,
-                    opacity: 0.8,
-                    dashArray: options.mode === 'preview' ? null : '8 8',
-                }).addTo(map);
-
-                const currentIndex = Math.min(
-                    Math.max(state.currentStopIndex || 0, 0),
-                    Math.max((state.activeTour || []).length - 1, 0)
-                );
-
-                routeStops.forEach((p) => {
-                    const markerState = p.routeIndex < currentIndex
-                        ? 'complete'
-                        : p.routeIndex === currentIndex
-                            ? 'current'
-                            : 'future';
-                    const className = [
-                        'ct-stop-marker',
-                        markerState === 'complete' ? 'ct-stop-marker-complete' : '',
-                        markerState === 'current' ? 'ct-stop-marker-current' : '',
-                    ].filter(Boolean).join(' ');
-
-                    const icon = L.divIcon({
-                        className: '',
-                        html: `<div class="${className}">${p.routeIndex + 1}</div>`,
-                        iconSize: [28, 28],
-                        iconAnchor: [14, 14],
-                    });
-
-                    L.marker([p.latitude, p.longitude], { icon })
-                        .bindPopup(`<strong>${escapeHtml(p.title)}</strong><br>${escapeHtml(p.address || '')}`)
-                        .addTo(map);
-                });
+                const width = 360;
+                const height = 240;
+                const pad = 34;
+                const lats = routeStops.map(p => p.latitude);
+                const lngs = routeStops.map(p => p.longitude);
 
                 if (
                     state.userLocation &&
                     Number.isFinite(state.userLocation.latitude) &&
                     Number.isFinite(state.userLocation.longitude)
                 ) {
-                    const userIcon = L.divIcon({
-                        className: '',
-                        html: '<div class="ct-user-marker"></div>',
-                        iconSize: [18, 18],
-                        iconAnchor: [9, 9],
-                    });
-                    L.marker([state.userLocation.latitude, state.userLocation.longitude], { icon: userIcon })
-                        .bindPopup('You are here')
-                        .addTo(map);
-
-                    const currentStop = state.activeTour[currentIndex];
-                    if (
-                        options.mode === 'tour' &&
-                        currentStop &&
-                        Number.isFinite(currentStop.latitude) &&
-                        Number.isFinite(currentStop.longitude)
-                    ) {
-                        L.polyline([
-                            [state.userLocation.latitude, state.userLocation.longitude],
-                            [currentStop.latitude, currentStop.longitude],
-                        ], {
-                            color: '#16a34a',
-                            weight: 3,
-                            opacity: 0.9,
-                        }).addTo(map);
-                    }
+                    lats.push(state.userLocation.latitude);
+                    lngs.push(state.userLocation.longitude);
                 }
 
-                const fitMapToContent = () => {
-                    map.invalidateSize();
+                const minLat = Math.min(...lats);
+                const maxLat = Math.max(...lats);
+                const minLng = Math.min(...lngs);
+                const maxLng = Math.max(...lngs);
+                const latSpan = Math.max(maxLat - minLat, 0.0001);
+                const lngSpan = Math.max(maxLng - minLng, 0.0001);
 
-                    if (options.mode === 'tour') {
-                        const focusPoints = [];
-                        const currentStop = state.activeTour[currentIndex];
+                const pointFor = (lat, lng) => ({
+                    x: pad + ((lng - minLng) / lngSpan) * (width - pad * 2),
+                    y: pad + ((maxLat - lat) / latSpan) * (height - pad * 2),
+                });
 
-                        if (
-                            currentStop &&
-                            Number.isFinite(currentStop.latitude) &&
-                            Number.isFinite(currentStop.longitude)
-                        ) {
-                            focusPoints.push([currentStop.latitude, currentStop.longitude]);
-                        }
+                const points = routeStops.map(p => ({
+                    ...p,
+                    ...pointFor(p.latitude, p.longitude),
+                }));
+                const currentIndex = Math.min(
+                    Math.max(state.currentStopIndex || 0, 0),
+                    Math.max((state.activeTour || []).length - 1, 0)
+                );
+                const routeLine = points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
 
-                        if (
-                            state.userLocation &&
-                            Number.isFinite(state.userLocation.latitude) &&
-                            Number.isFinite(state.userLocation.longitude)
-                        ) {
-                            focusPoints.push([state.userLocation.latitude, state.userLocation.longitude]);
-                        }
-
-                        if (focusPoints.length === 1) {
-                            map.setView(focusPoints[0], 16);
-                            return;
-                        }
-
-                        if (focusPoints.length > 1) {
-                            map.fitBounds(L.latLngBounds(focusPoints).pad(0.35), { maxZoom: 17 });
-                            return;
-                        }
+                let userSvg = '';
+                let userLineSvg = '';
+                if (
+                    state.userLocation &&
+                    Number.isFinite(state.userLocation.latitude) &&
+                    Number.isFinite(state.userLocation.longitude)
+                ) {
+                    const userPoint = pointFor(state.userLocation.latitude, state.userLocation.longitude);
+                    const currentPoint = points.find(p => p.routeIndex === currentIndex);
+                    if (options.mode === 'tour' && currentPoint) {
+                        userLineSvg = `
+                          <line x1="${userPoint.x.toFixed(1)}" y1="${userPoint.y.toFixed(1)}"
+                                x2="${currentPoint.x.toFixed(1)}" y2="${currentPoint.y.toFixed(1)}"
+                                stroke="#16a34a" stroke-width="3" stroke-linecap="round"
+                                stroke-dasharray="6 6" />
+                        `;
                     }
+                    userSvg = `
+                      <circle cx="${userPoint.x.toFixed(1)}" cy="${userPoint.y.toFixed(1)}" r="8"
+                              fill="#2563eb" stroke="white" stroke-width="3" />
+                      <circle cx="${userPoint.x.toFixed(1)}" cy="${userPoint.y.toFixed(1)}" r="15"
+                              fill="none" stroke="#2563eb" stroke-opacity="0.2" stroke-width="6" />
+                    `;
+                }
 
-                    const bounds = L.latLngBounds(latLngs);
-                    if (
-                        state.userLocation &&
-                        Number.isFinite(state.userLocation.latitude) &&
-                        Number.isFinite(state.userLocation.longitude)
-                    ) {
-                        bounds.extend([state.userLocation.latitude, state.userLocation.longitude]);
-                    }
-                    map.fitBounds(bounds.pad(0.2), { maxZoom: options.mode === 'tour' ? 17 : 16 });
-                };
+                const markerSvg = points.map((p) => {
+                    const isComplete = p.routeIndex < currentIndex;
+                    const isCurrent = p.routeIndex === currentIndex;
+                    const fill = isCurrent ? '#f59e0b' : isComplete ? '#15803d' : '#1e3a8a';
+                    const textFill = isCurrent ? '#111827' : '#ffffff';
+                    const label = escapeHtml(p.title || `Stop ${p.routeIndex + 1}`);
 
-                requestAnimationFrame(fitMapToContent);
-                [120, 350, 900].forEach(delay => setTimeout(fitMapToContent, delay));
+                    return `
+                      <g>
+                        <title>${label}</title>
+                        ${isCurrent
+                          ? `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="20"
+                                     fill="#f59e0b" opacity="0.22" />`
+                          : ''}
+                        <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="14"
+                                fill="${fill}" stroke="white" stroke-width="3" />
+                        <text x="${p.x.toFixed(1)}" y="${(p.y + 4).toFixed(1)}"
+                              text-anchor="middle" font-size="12" font-weight="800"
+                              fill="${textFill}">${p.routeIndex + 1}</text>
+                      </g>
+                    `;
+                }).join('');
+
+                container.innerHTML = `
+                  <svg viewBox="0 0 ${width} ${height}" class="w-full h-full block" role="img"
+                       aria-label="Ordered route diagram">
+                    <rect x="0" y="0" width="${width}" height="${height}" rx="16" fill="#eef2f7" />
+                    <path d="M 18 54 C 82 18, 119 88, 188 52 S 296 34, 342 86"
+                          fill="none" stroke="#cbd5e1" stroke-width="12" stroke-linecap="round" opacity="0.55" />
+                    <path d="M 22 188 C 86 146, 130 198, 188 156 S 286 128, 338 174"
+                          fill="none" stroke="#dbeafe" stroke-width="18" stroke-linecap="round" opacity="0.8" />
+                    ${routeLine
+                      ? `<polyline points="${routeLine}" fill="none" stroke="#1e3a8a"
+                                   stroke-width="5" stroke-linejoin="round" stroke-linecap="round" />`
+                      : ''}
+                    ${userLineSvg}
+                    ${markerSvg}
+                    ${userSvg}
+                  </svg>
+                `;
+            },
+
+            renderRouteMap: (containerId, options = {}) => {
+                app.renderRouteDiagram(containerId, options);
             },
 
 
@@ -1889,7 +1817,7 @@ skipStop: (plaqueId) => {
   if (!state.activeTour || !state.activeTour.length) return;
 
   const ok = confirm(
-    'Skip this stop and move on to the next? Curated Tours will update the in-app map.'
+    'Skip this stop and move on to the next? Curated Tours will update the route guide.'
   );
   if (!ok) return;
 
@@ -2688,7 +2616,7 @@ app.renderNav();
             aware of traffic and your surroundings.
           </li>
           <li>
-            The tour now runs inside <span class="font-semibold">Curated Tours</span>, with the map, current stop,
+            The tour now runs inside <span class="font-semibold">Curated Tours</span>, with the route guide, current stop,
             and audio all on one screen.
           </li>
           <li>
@@ -2696,7 +2624,7 @@ app.renderNav();
             of the building or site you should be looking at.
           </li>
           <li>
-            Google Maps is now only a fallback link if the in-app map cannot give you enough confidence.
+            Google Maps is now only a fallback link if the in-app route guide cannot give you enough confidence.
           </li>
           <li>
             Some stops may be <span class="font-semibold">private homes or workplaces</span>. Please be respectful –
@@ -2973,7 +2901,7 @@ app.renderNav();
             Suggested start
           </p>
           <p class="text-sm text-gray-800">
-            Start near <span class="font-semibold">${escapeHtml(startLabel)}</span>. The in-app map below shows the full route before you unlock.
+            Start near <span class="font-semibold">${escapeHtml(startLabel)}</span>. The in-app route guide below shows the full route before you unlock.
           </p>
           <div class="flex flex-col gap-2 sm:flex-row">
             ${startAreaUrl
@@ -2988,7 +2916,7 @@ app.renderNav();
         <div class="space-y-2">
           <div id="preview-map" class="ct-map"></div>
           <p class="text-xs text-gray-500">
-            The map shows the ordered tour route and numbered stops. The line is a planning guide; always follow pavements, crossings, and local conditions.
+            The route guide shows the ordered stops and current direction of travel. It is a planning guide; always follow pavements, crossings, and local conditions.
           </p>
         </div>
 
@@ -3229,7 +3157,7 @@ renderTour: () => {
               Stop ${safeIndex + 1} of ${total}: ${escapeHtml(currentPlaque.title)}
             </p>
             <p class="text-xs text-gray-500 mt-1">
-              Stay in Curated Tours: follow the map, play the story, then continue when you are ready.
+              Stay in Curated Tours: follow the route guide, play the story, then continue when you are ready.
             </p>
           </div>
           <span class="text-xs font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded-full whitespace-nowrap">
@@ -3256,7 +3184,7 @@ renderTour: () => {
       <div class="mb-4 space-y-2">
         <div id="tour-map" class="ct-map"></div>
         <p class="text-xs text-gray-500">
-          Blue pins are upcoming stops, green pins are completed stops, and the amber pin is your current stop. The green line connects your latest location to the current stop when location is available.
+          Blue pins are upcoming stops, green pins are completed stops, and the amber pin is your current stop. The dashed green line connects your latest location to the current stop when location is available.
         </p>
       </div>
       ${nearStopBanner}
@@ -3791,7 +3719,7 @@ renderCard: (plaque, index, total) => {
       </p>
       <ul class="list-disc list-inside text-sm text-gray-700 space-y-1">
         <li>Read safety tips and how the live tour flow works.</li>
-        <li>Tap <strong>Got it – start in Curated Tours</strong> to open the live in-app map.</li>
+        <li>Tap <strong>Got it – start in Curated Tours</strong> to open the live in-app route guide.</li>
         <li>Use <strong>Share this Curated Tour</strong> to copy or send a
             link so someone else can open the same route and demo unlock it
             on their own device.</li>
@@ -3799,7 +3727,7 @@ renderCard: (plaque, index, total) => {
 
       <h3 class="text-sm font-semibold text-gray-900 mt-3">7. Walk between stops</h3>
       <p class="text-sm text-gray-700">
-        Stay in Curated Tours to see the map, your current stop, and the story audio
+        Stay in Curated Tours to see the route guide, your current stop, and the story audio
         in one place. Google Maps remains available only as a fallback link.
       </p>
       <p class="text-sm text-gray-700">
@@ -3815,7 +3743,7 @@ renderCard: (plaque, index, total) => {
         After each story you can:
       </p>
       <ul class="list-disc list-inside text-sm text-gray-700 space-y-1">
-        <li>Tap <strong>Continue to next stop</strong> to update the in-app map and carry on.</li>
+        <li>Tap <strong>Continue to next stop</strong> to update the route guide and carry on.</li>
         <li>Tap <strong>Back to previous</strong> if you want to revisit the
             last location.</li>
         <li>Tap <strong>Skip this stop</strong> to miss one out and re-route
