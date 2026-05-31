@@ -48,18 +48,13 @@
     }
 
     .ct-map {
-      height: 320px;
+      height: 320px !important;
       min-height: 320px;
+      max-height: 320px;
       width: 100%;
       border-radius: 0.75rem;
       overflow: hidden;
       background: #e5e7eb;
-    }
-
-    .ct-map .leaflet-container,
-    .ct-map.leaflet-container {
-      height: 100%;
-      width: 100%;
     }
 
     .ct-stop-marker {
@@ -1455,11 +1450,6 @@ speak: async (plaqueId) => {
 
     audio.ontimeupdate = () => {
       app.updateAudioProgressUi();
-      const now = Date.now();
-      if (now - state.lastAudioRenderAt > 1000) {
-        state.lastAudioRenderAt = now;
-        app.render();
-      }
     };
 
     audio.onended = () => {
