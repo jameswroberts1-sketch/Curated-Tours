@@ -1104,10 +1104,43 @@ startTourAndOpenMaps: () => {
                 });
                 state.mapInstances[mapKey] = map;
 
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    maxZoom: 19,
-                    attribution: '&copy; OpenStreetMap contributors',
-                }).addTo(map);
+                let baseLayer = null;
+                let usingFallbackTiles = false;
+                const addBaseLayer = (url, layerOptions) => {
+                    const layer = L.tileLayer(url, {
+                        maxZoom: 19,
+                        tileSize: 256,
+                        keepBuffer: 3,
+                        updateWhenIdle: true,
+                        ...layerOptions,
+                    }).addTo(map);
+
+                    layer.on('tileerror', () => {
+                        if (usingFallbackTiles) return;
+                        usingFallbackTiles = true;
+                        try {
+                            map.removeLayer(layer);
+                        } catch (err) {
+                            console.warn('Map tile fallback cleanup failed', err);
+                        }
+                        baseLayer = addBaseLayer(
+                            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+                            {
+                                attribution: 'Tiles &copy; Esri; data &copy; OpenStreetMap contributors',
+                            }
+                        );
+                    });
+
+                    return layer;
+                };
+
+                baseLayer = addBaseLayer(
+                    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                    {
+                        subdomains: 'abcd',
+                        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+                    }
+                );
                 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
                 const latLngs = routeStops.map(p => [p.latitude, p.longitude]);
