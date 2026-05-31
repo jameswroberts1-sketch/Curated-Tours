@@ -93,6 +93,13 @@
       height: 100%;
       border: 0;
     }
+
+    .ct-map-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+    }
   </style>
 </head>
 
@@ -475,46 +482,77 @@ const TourSharing = {
         return url;
       },
 
-      generateMapsEmbedUrl: (options = {}) => {
+      getMapFrameData: (options = {}) => {
         const mode = options.mode || 'preview';
         const tour = state.activeTour || [];
-        if (!tour.length) return '';
+        if (!tour.length) return null;
 
-        const toCoord = (p) => {
-          if (!p || !Number.isFinite(p.latitude) || !Number.isFinite(p.longitude)) {
-            return '';
-          }
-          return `${p.latitude},${p.longitude}`;
+        const currentIndex = Math.min(
+          Math.max(state.currentStopIndex || 0, 0),
+          Math.max(tour.length - 1, 0)
+        );
+        const routeStops = tour
+          .map((p, idx) => ({ ...p, routeIndex: idx }))
+          .filter(p => Number.isFinite(p.latitude) && Number.isFinite(p.longitude));
+        if (!routeStops.length) return null;
+
+        const focusStops = mode === 'tour'
+          ? routeStops.filter(p => p.routeIndex === currentIndex)
+          : routeStops;
+        const lats = focusStops.map(p => p.latitude);
+        const lngs = focusStops.map(p => p.longitude);
+
+        if (
+          mode === 'tour' &&
+          state.userLocation &&
+          Number.isFinite(state.userLocation.latitude) &&
+          Number.isFinite(state.userLocation.longitude)
+        ) {
+          lats.push(state.userLocation.latitude);
+          lngs.push(state.userLocation.longitude);
+        }
+
+        const minLatRaw = Math.min(...lats);
+        const maxLatRaw = Math.max(...lats);
+        const minLngRaw = Math.min(...lngs);
+        const maxLngRaw = Math.max(...lngs);
+        const latPad = Math.max((maxLatRaw - minLatRaw) * 0.25, mode === 'tour' ? 0.0015 : 0.003);
+        const lngPad = Math.max((maxLngRaw - minLngRaw) * 0.25, mode === 'tour' ? 0.0015 : 0.003);
+        const bbox = {
+          minLat: minLatRaw - latPad,
+          maxLat: maxLatRaw + latPad,
+          minLng: minLngRaw - lngPad,
+          maxLng: maxLngRaw + lngPad,
         };
 
-        if (mode === 'tour') {
-          const currentIndex = Math.min(
-            Math.max(state.currentStopIndex || 0, 0),
-            Math.max(tour.length - 1, 0)
-          );
-          const currentStop = tour[currentIndex];
-          const stopCoord = toCoord(currentStop);
-          if (!stopCoord) return '';
+        const markerStop = mode === 'tour'
+          ? routeStops.find(p => p.routeIndex === currentIndex) || routeStops[0]
+          : routeStops[0];
+        const markerParam = markerStop
+          ? `&marker=${markerStop.latitude},${markerStop.longitude}`
+          : '';
+        const src =
+          `https://www.openstreetmap.org/export/embed.html?bbox=${bbox.minLng}%2C${bbox.minLat}%2C${bbox.maxLng}%2C${bbox.maxLat}&layer=mapnik${markerParam}`;
 
-          if (
-            state.userLocation &&
-            Number.isFinite(state.userLocation.latitude) &&
-            Number.isFinite(state.userLocation.longitude)
-          ) {
-            const origin = `${state.userLocation.latitude},${state.userLocation.longitude}`;
-            return `https://www.google.com/maps/dir/${origin}/${stopCoord}/?output=embed&travelmode=walking`;
-          }
+        const project = (lat, lng) => ({
+          x: ((lng - bbox.minLng) / (bbox.maxLng - bbox.minLng)) * 100,
+          y: ((bbox.maxLat - lat) / (bbox.maxLat - bbox.minLat)) * 100,
+        });
 
-          return `https://www.google.com/maps?q=${stopCoord}&z=17&output=embed`;
+        const overlayStops = routeStops.map(p => ({
+          ...p,
+          ...project(p.latitude, p.longitude),
+        }));
+        let userPoint = null;
+        if (
+          state.userLocation &&
+          Number.isFinite(state.userLocation.latitude) &&
+          Number.isFinite(state.userLocation.longitude)
+        ) {
+          userPoint = project(state.userLocation.latitude, state.userLocation.longitude);
         }
 
-        const coords = tour.map(toCoord).filter(Boolean);
-        if (!coords.length) return '';
-        if (coords.length === 1) {
-          return `https://www.google.com/maps?q=${coords[0]}&z=16&output=embed`;
-        }
-
-        return `https://www.google.com/maps/dir/${coords.join('/')}/?output=embed&travelmode=walking`;
+        return { src, overlayStops, userPoint, currentIndex };
       },
 
       generateMapsPointUrl: (loc) => {
@@ -1240,21 +1278,77 @@ startTourAndOpenMaps: () => {
                 if (!container) return;
 
                 app.destroyMap(containerId);
-                const embedUrl = Geo.generateMapsEmbedUrl(options);
+                const mapData = Geo.getMapFrameData(options);
 
-                if (!embedUrl) {
+                if (!mapData || !mapData.src) {
                     app.renderRouteDiagram(containerId, options);
                     return;
                 }
 
+                const routeLine = mapData.overlayStops
+                    .map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`)
+                    .join(' ');
+                const userLine = options.mode === 'tour' && mapData.userPoint
+                    ? (() => {
+                        const currentPoint = mapData.overlayStops.find(p => p.routeIndex === mapData.currentIndex);
+                        if (!currentPoint) return '';
+                        return `
+                          <line x1="${mapData.userPoint.x.toFixed(2)}" y1="${mapData.userPoint.y.toFixed(2)}"
+                                x2="${currentPoint.x.toFixed(2)}" y2="${currentPoint.y.toFixed(2)}"
+                                stroke="#16a34a" stroke-width="1.4" stroke-linecap="round"
+                                stroke-dasharray="2 2" vector-effect="non-scaling-stroke" />
+                        `;
+                      })()
+                    : '';
+                const markers = mapData.overlayStops.map((p) => {
+                    const isComplete = p.routeIndex < mapData.currentIndex;
+                    const isCurrent = p.routeIndex === mapData.currentIndex;
+                    const fill = isCurrent ? '#f59e0b' : isComplete ? '#15803d' : '#1e3a8a';
+                    const textFill = isCurrent ? '#111827' : '#ffffff';
+                    return `
+                      <g>
+                        ${isCurrent
+                          ? `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="4.8"
+                                     fill="#f59e0b" opacity="0.25" />`
+                          : ''}
+                        <circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="3.8"
+                                fill="${fill}" stroke="white" stroke-width="1.2" vector-effect="non-scaling-stroke" />
+                        <text x="${p.x.toFixed(2)}" y="${(p.y + 1.25).toFixed(2)}"
+                              text-anchor="middle" font-size="3.2" font-weight="800"
+                              fill="${textFill}">${p.routeIndex + 1}</text>
+                      </g>
+                    `;
+                }).join('');
+                const userMarker = mapData.userPoint
+                    ? `
+                      <circle cx="${mapData.userPoint.x.toFixed(2)}" cy="${mapData.userPoint.y.toFixed(2)}" r="3.2"
+                              fill="#2563eb" stroke="white" stroke-width="1.2" vector-effect="non-scaling-stroke" />
+                      <circle cx="${mapData.userPoint.x.toFixed(2)}" cy="${mapData.userPoint.y.toFixed(2)}" r="5.2"
+                              fill="none" stroke="#2563eb" stroke-opacity="0.22" stroke-width="1.8"
+                              vector-effect="non-scaling-stroke" />
+                    `
+                    : '';
+
                 container.innerHTML = `
+                  <div class="relative w-full h-full">
                   <iframe
                     title="${options.mode === 'tour' ? 'Current stop map' : 'Tour route map'}"
-                    src="${escapeHtml(embedUrl)}"
+                    src="${escapeHtml(mapData.src)}"
                     loading="lazy"
                     referrerpolicy="no-referrer-when-downgrade"
                     allowfullscreen>
                   </iframe>
+                  <svg class="ct-map-overlay" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                    ${routeLine
+                      ? `<polyline points="${routeLine}" fill="none" stroke="#1e3a8a"
+                                   stroke-width="1.35" stroke-linejoin="round" stroke-linecap="round"
+                                   vector-effect="non-scaling-stroke" />`
+                      : ''}
+                    ${userLine}
+                    ${markers}
+                    ${userMarker}
+                  </svg>
+                  </div>
                 `;
             },
 
