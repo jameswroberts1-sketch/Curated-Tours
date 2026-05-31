@@ -86,6 +86,13 @@
       border: 3px solid white;
       box-shadow: 0 0 0 5px rgba(37, 99, 235, 0.2), 0 2px 8px rgba(15, 23, 42, 0.35);
     }
+
+    .ct-map iframe {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
   </style>
 </head>
 
@@ -468,6 +475,48 @@ const TourSharing = {
         return url;
       },
 
+      generateMapsEmbedUrl: (options = {}) => {
+        const mode = options.mode || 'preview';
+        const tour = state.activeTour || [];
+        if (!tour.length) return '';
+
+        const toCoord = (p) => {
+          if (!p || !Number.isFinite(p.latitude) || !Number.isFinite(p.longitude)) {
+            return '';
+          }
+          return `${p.latitude},${p.longitude}`;
+        };
+
+        if (mode === 'tour') {
+          const currentIndex = Math.min(
+            Math.max(state.currentStopIndex || 0, 0),
+            Math.max(tour.length - 1, 0)
+          );
+          const currentStop = tour[currentIndex];
+          const stopCoord = toCoord(currentStop);
+          if (!stopCoord) return '';
+
+          if (
+            state.userLocation &&
+            Number.isFinite(state.userLocation.latitude) &&
+            Number.isFinite(state.userLocation.longitude)
+          ) {
+            const origin = `${state.userLocation.latitude},${state.userLocation.longitude}`;
+            return `https://www.google.com/maps/dir/${origin}/${stopCoord}/?output=embed&travelmode=walking`;
+          }
+
+          return `https://www.google.com/maps?q=${stopCoord}&z=17&output=embed`;
+        }
+
+        const coords = tour.map(toCoord).filter(Boolean);
+        if (!coords.length) return '';
+        if (coords.length === 1) {
+          return `https://www.google.com/maps?q=${coords[0]}&z=16&output=embed`;
+        }
+
+        return `https://www.google.com/maps/dir/${coords.join('/')}/?output=embed&travelmode=walking`;
+      },
+
       generateMapsPointUrl: (loc) => {
         if (
           !loc ||
@@ -843,9 +892,9 @@ startTourAndOpenMaps: () => {
   app.render();
   window.scrollTo(0, 0);
 
-  // 4. Start geolocation so the in-app route guide can follow the walk.
+  // 4. Start geolocation so the in-app map can follow the walk.
   app.startAudioWatch();
-  app.showToast('Tour started. Stay in Curated Tours and follow the route guide.');
+  app.showToast('Tour started. Stay in Curated Tours and follow the in-app map.');
 },
       
       markTourPaidAndSave: () => {
@@ -1187,7 +1236,26 @@ startTourAndOpenMaps: () => {
             },
 
             renderRouteMap: (containerId, options = {}) => {
-                app.renderRouteDiagram(containerId, options);
+                const container = document.getElementById(containerId);
+                if (!container) return;
+
+                app.destroyMap(containerId);
+                const embedUrl = Geo.generateMapsEmbedUrl(options);
+
+                if (!embedUrl) {
+                    app.renderRouteDiagram(containerId, options);
+                    return;
+                }
+
+                container.innerHTML = `
+                  <iframe
+                    title="${options.mode === 'tour' ? 'Current stop map' : 'Tour route map'}"
+                    src="${escapeHtml(embedUrl)}"
+                    loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"
+                    allowfullscreen>
+                  </iframe>
+                `;
             },
 
 
@@ -1817,7 +1885,7 @@ skipStop: (plaqueId) => {
   if (!state.activeTour || !state.activeTour.length) return;
 
   const ok = confirm(
-    'Skip this stop and move on to the next? Curated Tours will update the route guide.'
+    'Skip this stop and move on to the next? Curated Tours will update the in-app map.'
   );
   if (!ok) return;
 
@@ -2616,7 +2684,7 @@ app.renderNav();
             aware of traffic and your surroundings.
           </li>
           <li>
-            The tour now runs inside <span class="font-semibold">Curated Tours</span>, with the route guide, current stop,
+            The tour now runs inside <span class="font-semibold">Curated Tours</span>, with the street map, current stop,
             and audio all on one screen.
           </li>
           <li>
@@ -2624,7 +2692,7 @@ app.renderNav();
             of the building or site you should be looking at.
           </li>
           <li>
-            Google Maps is now only a fallback link if the in-app route guide cannot give you enough confidence.
+            Google Maps remains available as a fallback link, but the main map stays inside Curated Tours.
           </li>
           <li>
             Some stops may be <span class="font-semibold">private homes or workplaces</span>. Please be respectful –
@@ -2901,7 +2969,7 @@ app.renderNav();
             Suggested start
           </p>
           <p class="text-sm text-gray-800">
-            Start near <span class="font-semibold">${escapeHtml(startLabel)}</span>. The in-app route guide below shows the full route before you unlock.
+            Start near <span class="font-semibold">${escapeHtml(startLabel)}</span>. The in-app map below shows the full route before you unlock.
           </p>
           <div class="flex flex-col gap-2 sm:flex-row">
             ${startAreaUrl
@@ -2916,7 +2984,7 @@ app.renderNav();
         <div class="space-y-2">
           <div id="preview-map" class="ct-map"></div>
           <p class="text-xs text-gray-500">
-            The route guide shows the ordered stops and current direction of travel. It is a planning guide; always follow pavements, crossings, and local conditions.
+            The embedded map shows the ordered stops and street context. Always follow pavements, crossings, and local conditions.
           </p>
         </div>
 
@@ -3157,7 +3225,7 @@ renderTour: () => {
               Stop ${safeIndex + 1} of ${total}: ${escapeHtml(currentPlaque.title)}
             </p>
             <p class="text-xs text-gray-500 mt-1">
-              Stay in Curated Tours: follow the route guide, play the story, then continue when you are ready.
+              Stay in Curated Tours: follow the in-app map, play the story, then continue when you are ready.
             </p>
           </div>
           <span class="text-xs font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded-full whitespace-nowrap">
@@ -3719,7 +3787,7 @@ renderCard: (plaque, index, total) => {
       </p>
       <ul class="list-disc list-inside text-sm text-gray-700 space-y-1">
         <li>Read safety tips and how the live tour flow works.</li>
-        <li>Tap <strong>Got it – start in Curated Tours</strong> to open the live in-app route guide.</li>
+        <li>Tap <strong>Got it – start in Curated Tours</strong> to open the live in-app map.</li>
         <li>Use <strong>Share this Curated Tour</strong> to copy or send a
             link so someone else can open the same route and demo unlock it
             on their own device.</li>
@@ -3727,7 +3795,7 @@ renderCard: (plaque, index, total) => {
 
       <h3 class="text-sm font-semibold text-gray-900 mt-3">7. Walk between stops</h3>
       <p class="text-sm text-gray-700">
-        Stay in Curated Tours to see the route guide, your current stop, and the story audio
+        Stay in Curated Tours to see the map, your current stop, and the story audio
         in one place. Google Maps remains available only as a fallback link.
       </p>
       <p class="text-sm text-gray-700">
@@ -3743,7 +3811,7 @@ renderCard: (plaque, index, total) => {
         After each story you can:
       </p>
       <ul class="list-disc list-inside text-sm text-gray-700 space-y-1">
-        <li>Tap <strong>Continue to next stop</strong> to update the route guide and carry on.</li>
+        <li>Tap <strong>Continue to next stop</strong> to update the in-app map and carry on.</li>
         <li>Tap <strong>Back to previous</strong> if you want to revisit the
             last location.</li>
         <li>Tap <strong>Skip this stop</strong> to miss one out and re-route
