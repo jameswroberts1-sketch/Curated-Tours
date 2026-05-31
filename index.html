@@ -6,6 +6,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Curated Tours</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIINfQ3FovChLs7m0P9vD3P4k4M3Y6Ebb4Q=" crossorigin="">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script>
     tailwind.config = {
       theme: {
@@ -41,6 +45,55 @@
 
     ::-webkit-scrollbar-thumb:hover {
       background: #999;
+    }
+
+    .ct-map {
+      height: 320px;
+      min-height: 320px;
+      width: 100%;
+      border-radius: 0.75rem;
+      overflow: hidden;
+      background: #e5e7eb;
+    }
+
+    .ct-map .leaflet-container,
+    .ct-map.leaflet-container {
+      height: 100%;
+      width: 100%;
+    }
+
+    .ct-stop-marker {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 13px;
+      font-weight: 800;
+      background: #1e3a8a;
+      border: 2px solid white;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.35);
+    }
+
+    .ct-stop-marker-complete {
+      background: #15803d;
+    }
+
+    .ct-stop-marker-current {
+      background: #f59e0b;
+      color: #111827;
+      box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.25), 0 2px 8px rgba(15, 23, 42, 0.35);
+    }
+
+    .ct-user-marker {
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: #2563eb;
+      border: 3px solid white;
+      box-shadow: 0 0 0 5px rgba(37, 99, 235, 0.2), 0 2px 8px rgba(15, 23, 42, 0.35);
     }
   </style>
 </head>
@@ -107,6 +160,7 @@
       //}
     ];
     const STORAGE_KEY = 'collections_saved_tours';
+    const AUDIO_PROGRESS_KEY = 'collections_audio_progress';
     const MAX_TOUR_SIZE = 10;
     const AUDIO_UNLOCK_DISTANCE = 0.02; // ~30 metres in miles
     const ARRIVAL_DISTANCE_MILES = 0.003;
@@ -158,6 +212,18 @@
       isSpeechPlaying: false,
       isSpeechPaused: false,
       currentAudioElement: null,
+      currentAudioTime: 0,
+      currentAudioDuration: 0,
+      audioProgressByStop: (() => {
+        try {
+          return JSON.parse(localStorage.getItem(AUDIO_PROGRESS_KEY) || '{}');
+        } catch {
+          return {};
+        }
+      })(),
+      lastAudioRenderAt: 0,
+      mapInstances: {},
+      lastMapLocationRenderAt: 0,
       currentStopIndex: 0,     // which stop is "next" on the tour
       toast: null,             // small confirmation message (e.g. after skipping)
       catalogError: null,
@@ -384,6 +450,29 @@ const TourSharing = {
 
         let url = `${baseUrl}&destination=${dest}&travelmode=walking`;
         if (waypoints) url += `&waypoints=${waypoints}`;
+
+        return url;
+      },
+
+      generateMapsStopUrl: (plaque) => {
+        if (!plaque) return '';
+
+        const hasCoords =
+          Number.isFinite(plaque.latitude) && Number.isFinite(plaque.longitude);
+        const destination = hasCoords
+          ? `${plaque.latitude},${plaque.longitude}`
+          : encodeURIComponent((plaque.address || '').trim());
+
+        if (!destination) return '';
+
+        let url = `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=walking`;
+        if (
+          state.userLocation &&
+          Number.isFinite(state.userLocation.latitude) &&
+          Number.isFinite(state.userLocation.longitude)
+        ) {
+          url += `&origin=${state.userLocation.latitude},${state.userLocation.longitude}`;
+        }
 
         return url;
       },
@@ -763,19 +852,9 @@ startTourAndOpenMaps: () => {
   app.render();
   window.scrollTo(0, 0);
 
-  // 4. Build a Maps route for the whole tour
-  const navStops = state.activeTour;
-  const navUrl = Geo.generateMapsNavUrl(navStops);
-
-  // Start background geolocation for “you’re nearly there / you’ve arrived” prompts
+  // 4. Start geolocation so the in-app map can follow the walk.
   app.startAudioWatch();
-
-  // 5. Open Google Maps (if we managed to build a URL)
-  if (navUrl) {
-    window.open(navUrl, '_blank');
-  } else {
-    app.showToast('Tour started, but I couldn’t build a Google Maps route.');
-  }
+  app.showToast('Tour started. Stay in Curated Tours and follow the in-app map.');
 },
       
       markTourPaidAndSave: () => {
@@ -897,6 +976,262 @@ startTourAndOpenMaps: () => {
                         app.render();
                     }
                 }, 2000);
+            },
+
+            formatAudioTime: (seconds) => {
+                const safeSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
+                const mins = Math.floor(safeSeconds / 60);
+                const secs = String(safeSeconds % 60).padStart(2, '0');
+                return `${mins}:${secs}`;
+            },
+
+            getAudioProgress: (plaqueId) => {
+                const progress = state.audioProgressByStop?.[plaqueId];
+                if (!progress || !Number.isFinite(progress.time)) {
+                    return { time: 0, duration: 0 };
+                }
+                return {
+                    time: Math.max(0, progress.time || 0),
+                    duration: Math.max(0, progress.duration || 0),
+                };
+            },
+
+            saveAudioProgress: (plaqueId, time, duration) => {
+                if (!plaqueId) return;
+                const safeTime = Math.max(0, Number(time) || 0);
+                const safeDuration = Math.max(0, Number(duration) || 0);
+
+                if (!state.audioProgressByStop) state.audioProgressByStop = {};
+
+                if (safeDuration > 0 && safeTime >= safeDuration - 2) {
+                    delete state.audioProgressByStop[plaqueId];
+                } else if (safeTime > 2) {
+                    state.audioProgressByStop[plaqueId] = {
+                        time: safeTime,
+                        duration: safeDuration,
+                        updatedAt: Date.now(),
+                    };
+                }
+
+                localStorage.setItem(
+                    AUDIO_PROGRESS_KEY,
+                    JSON.stringify(state.audioProgressByStop)
+                );
+            },
+
+            clearAudioProgress: (plaqueId) => {
+                if (!plaqueId || !state.audioProgressByStop) return;
+                delete state.audioProgressByStop[plaqueId];
+                localStorage.setItem(
+                    AUDIO_PROGRESS_KEY,
+                    JSON.stringify(state.audioProgressByStop)
+                );
+            },
+
+            updateAudioProgressUi: () => {
+                const plaqueId = state.currentSpeechPlaqueId;
+                if (!plaqueId || !state.currentAudioElement) return;
+
+                const audio = state.currentAudioElement;
+                const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+                const time = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+                state.currentAudioTime = time;
+                state.currentAudioDuration = duration;
+                app.saveAudioProgress(plaqueId, time, duration);
+
+                const range = document.getElementById(`audio-range-${plaqueId}`);
+                if (range) range.value = String(Math.floor(time));
+
+                const label = document.getElementById(`audio-time-${plaqueId}`);
+                if (label) {
+                    const durationLabel = duration ? app.formatAudioTime(duration) : '--:--';
+                    label.textContent = `${app.formatAudioTime(time)} / ${durationLabel}`;
+                }
+            },
+
+            seekAudio: (seconds) => {
+                const audio = state.currentAudioElement;
+                if (!audio) return;
+                const target = Math.max(0, Number(seconds) || 0);
+                audio.currentTime = target;
+                app.updateAudioProgressUi();
+            },
+
+            destroyMap: (key) => {
+                const map = state.mapInstances?.[key];
+                if (!map) return;
+                try {
+                    map.remove();
+                } catch (err) {
+                    console.warn('Map cleanup failed', err);
+                }
+                delete state.mapInstances[key];
+            },
+
+            destroyAllMaps: () => {
+                Object.keys(state.mapInstances || {}).forEach(key => app.destroyMap(key));
+            },
+
+            renderRouteMap: (containerId, options = {}) => {
+                const container = document.getElementById(containerId);
+                if (!container) return;
+
+                const mapKey = containerId;
+                app.destroyMap(mapKey);
+                container.innerHTML = '';
+
+                if (!window.L) {
+                    container.innerHTML = `
+                      <div class="h-full flex items-center justify-center p-4 text-center text-sm text-gray-600">
+                        In-app mapping could not load. Use the fallback Maps link for this UAT run.
+                      </div>
+                    `;
+                    return;
+                }
+
+                const routeStops = (state.activeTour || [])
+                    .map((p, idx) => ({ ...p, routeIndex: idx }))
+                    .filter(p => Number.isFinite(p.latitude) && Number.isFinite(p.longitude));
+
+                if (!routeStops.length) {
+                    container.innerHTML = `
+                      <div class="h-full flex items-center justify-center p-4 text-center text-sm text-gray-600">
+                        This tour does not have enough coordinates to draw an in-app map.
+                      </div>
+                    `;
+                    return;
+                }
+
+                const map = L.map(containerId, {
+                    zoomControl: false,
+                    scrollWheelZoom: false,
+                    tap: true,
+                });
+                state.mapInstances[mapKey] = map;
+
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '&copy; OpenStreetMap contributors',
+                }).addTo(map);
+                L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+                const latLngs = routeStops.map(p => [p.latitude, p.longitude]);
+                L.polyline(latLngs, {
+                    color: '#1e3a8a',
+                    weight: 4,
+                    opacity: 0.8,
+                    dashArray: options.mode === 'preview' ? null : '8 8',
+                }).addTo(map);
+
+                const currentIndex = Math.min(
+                    Math.max(state.currentStopIndex || 0, 0),
+                    Math.max((state.activeTour || []).length - 1, 0)
+                );
+
+                routeStops.forEach((p) => {
+                    const markerState = p.routeIndex < currentIndex
+                        ? 'complete'
+                        : p.routeIndex === currentIndex
+                            ? 'current'
+                            : 'future';
+                    const className = [
+                        'ct-stop-marker',
+                        markerState === 'complete' ? 'ct-stop-marker-complete' : '',
+                        markerState === 'current' ? 'ct-stop-marker-current' : '',
+                    ].filter(Boolean).join(' ');
+
+                    const icon = L.divIcon({
+                        className: '',
+                        html: `<div class="${className}">${p.routeIndex + 1}</div>`,
+                        iconSize: [28, 28],
+                        iconAnchor: [14, 14],
+                    });
+
+                    L.marker([p.latitude, p.longitude], { icon })
+                        .bindPopup(`<strong>${escapeHtml(p.title)}</strong><br>${escapeHtml(p.address || '')}`)
+                        .addTo(map);
+                });
+
+                if (
+                    state.userLocation &&
+                    Number.isFinite(state.userLocation.latitude) &&
+                    Number.isFinite(state.userLocation.longitude)
+                ) {
+                    const userIcon = L.divIcon({
+                        className: '',
+                        html: '<div class="ct-user-marker"></div>',
+                        iconSize: [18, 18],
+                        iconAnchor: [9, 9],
+                    });
+                    L.marker([state.userLocation.latitude, state.userLocation.longitude], { icon: userIcon })
+                        .bindPopup('You are here')
+                        .addTo(map);
+
+                    const currentStop = state.activeTour[currentIndex];
+                    if (
+                        options.mode === 'tour' &&
+                        currentStop &&
+                        Number.isFinite(currentStop.latitude) &&
+                        Number.isFinite(currentStop.longitude)
+                    ) {
+                        L.polyline([
+                            [state.userLocation.latitude, state.userLocation.longitude],
+                            [currentStop.latitude, currentStop.longitude],
+                        ], {
+                            color: '#16a34a',
+                            weight: 3,
+                            opacity: 0.9,
+                        }).addTo(map);
+                    }
+                }
+
+                const fitMapToContent = () => {
+                    map.invalidateSize();
+
+                    if (options.mode === 'tour') {
+                        const focusPoints = [];
+                        const currentStop = state.activeTour[currentIndex];
+
+                        if (
+                            currentStop &&
+                            Number.isFinite(currentStop.latitude) &&
+                            Number.isFinite(currentStop.longitude)
+                        ) {
+                            focusPoints.push([currentStop.latitude, currentStop.longitude]);
+                        }
+
+                        if (
+                            state.userLocation &&
+                            Number.isFinite(state.userLocation.latitude) &&
+                            Number.isFinite(state.userLocation.longitude)
+                        ) {
+                            focusPoints.push([state.userLocation.latitude, state.userLocation.longitude]);
+                        }
+
+                        if (focusPoints.length === 1) {
+                            map.setView(focusPoints[0], 16);
+                            return;
+                        }
+
+                        if (focusPoints.length > 1) {
+                            map.fitBounds(L.latLngBounds(focusPoints).pad(0.35), { maxZoom: 17 });
+                            return;
+                        }
+                    }
+
+                    const bounds = L.latLngBounds(latLngs);
+                    if (
+                        state.userLocation &&
+                        Number.isFinite(state.userLocation.latitude) &&
+                        Number.isFinite(state.userLocation.longitude)
+                    ) {
+                        bounds.extend([state.userLocation.latitude, state.userLocation.longitude]);
+                    }
+                    map.fitBounds(bounds.pad(0.2), { maxZoom: options.mode === 'tour' ? 17 : 16 });
+                };
+
+                requestAnimationFrame(fitMapToContent);
+                [120, 350, 900].forEach(delay => setTimeout(fitMapToContent, delay));
             },
 
 
@@ -1036,6 +1371,9 @@ speak: async (plaqueId) => {
   if (!plaque) return;
 
   const hasRecordedAudio = !!plaque.audioFile;
+  const shouldRestartCurrentAudio =
+    state.currentSpeechPlaqueId === plaqueId &&
+    (state.isSpeechPlaying || state.isSpeechPaused);
 
   if (!hasRecordedAudio && !('speechSynthesis' in window)) {
     alert('Spoken audio is not supported on this device/browser.');
@@ -1088,14 +1426,41 @@ speak: async (plaqueId) => {
   }
 
   app.stopSpeech();
+  if (shouldRestartCurrentAudio) {
+    app.clearAudioProgress(plaqueId);
+  }
 
   if (hasRecordedAudio) {
     const audio = new Audio(plaque.audioFile);
+    const savedProgress = app.getAudioProgress(plaqueId);
     state.currentAudioElement = audio;
     state.currentSpeechPlaqueId = plaqueId;
     state.isSpeechPlaying = true;
     state.isSpeechPaused = false;
+    state.currentAudioTime = savedProgress.time || 0;
+    state.currentAudioDuration = savedProgress.duration || 0;
+    state.lastAudioRenderAt = 0;
     app.render();
+
+    audio.onloadedmetadata = () => {
+      const saved = app.getAudioProgress(plaqueId);
+      const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+      const canResume = saved.time > 2 && (!duration || saved.time < duration - 2);
+      if (canResume) {
+        audio.currentTime = saved.time;
+      }
+      state.currentAudioDuration = duration;
+      app.updateAudioProgressUi();
+    };
+
+    audio.ontimeupdate = () => {
+      app.updateAudioProgressUi();
+      const now = Date.now();
+      if (now - state.lastAudioRenderAt > 1000) {
+        state.lastAudioRenderAt = now;
+        app.render();
+      }
+    };
 
     audio.onended = () => {
       if (state.currentAudioElement === audio) {
@@ -1103,6 +1468,9 @@ speak: async (plaqueId) => {
         state.isSpeechPlaying = false;
         state.isSpeechPaused = false;
         state.currentSpeechPlaqueId = null;
+        state.currentAudioTime = 0;
+        state.currentAudioDuration = 0;
+        app.clearAudioProgress(plaqueId);
         app.render();
       }
     };
@@ -1110,6 +1478,8 @@ speak: async (plaqueId) => {
     audio.onerror = () => {
       if (state.currentAudioElement === audio) {
         state.currentAudioElement = null;
+        state.currentAudioTime = 0;
+        state.currentAudioDuration = 0;
       }
       app.playTextToSpeech(plaque, plaqueId);
     };
@@ -1119,6 +1489,8 @@ speak: async (plaqueId) => {
     } catch (err) {
       console.error('Recorded audio failed', err);
       state.currentAudioElement = null;
+      state.currentAudioTime = 0;
+      state.currentAudioDuration = 0;
       app.playTextToSpeech(plaque, plaqueId);
     }
     return;
@@ -1188,6 +1560,7 @@ playTextToSpeech: (plaque, plaqueId) => {
 
       pauseSpeech: () => {
         if (state.currentAudioElement) {
+          app.updateAudioProgressUi();
           state.currentAudioElement.pause();
         } else if ('speechSynthesis' in window) {
           window.speechSynthesis.pause();
@@ -1203,6 +1576,9 @@ playTextToSpeech: (plaque, plaqueId) => {
         if (state.currentAudioElement) {
           state.currentAudioElement.play().catch((err) => {
             console.error('Recorded audio resume failed', err);
+            state.isSpeechPlaying = false;
+            state.isSpeechPaused = true;
+            app.render();
           });
         } else if ('speechSynthesis' in window) {
           window.speechSynthesis.resume();
@@ -1214,8 +1590,15 @@ playTextToSpeech: (plaque, plaqueId) => {
         app.render();
       },
 
+      restartAudio: (plaqueId) => {
+        app.stopSpeech();
+        app.clearAudioProgress(plaqueId);
+        app.speak(plaqueId);
+      },
+
       stopSpeech: () => {
         if (state.currentAudioElement) {
+          app.updateAudioProgressUi();
           state.currentAudioElement.pause();
           state.currentAudioElement.currentTime = 0;
           state.currentAudioElement = null;
@@ -1224,6 +1607,8 @@ playTextToSpeech: (plaque, plaqueId) => {
           state.isSpeechPlaying = false;
           state.isSpeechPaused = false;
           state.currentSpeechPlaqueId = null;
+          state.currentAudioTime = 0;
+          state.currentAudioDuration = 0;
           app.render();
           return;
         }
@@ -1231,6 +1616,8 @@ playTextToSpeech: (plaque, plaqueId) => {
         state.isSpeechPlaying = false;
         state.isSpeechPaused = false;
         state.currentSpeechPlaqueId = null;
+        state.currentAudioTime = 0;
+        state.currentAudioDuration = 0;
         app.render();
       },
 
@@ -1280,6 +1667,13 @@ playTextToSpeech: (plaque, plaqueId) => {
       const uLat = pos.coords.latitude;
       const uLng = pos.coords.longitude;
       state.userLocation = { latitude: uLat, longitude: uLng };
+      if (state.view === 'TOUR') {
+        const now = Date.now();
+        if (now - state.lastMapLocationRenderAt > 5000) {
+          state.lastMapLocationRenderAt = now;
+          app.renderRouteMap('tour-map', { mode: 'tour' });
+        }
+      }
 
       // No active tour? Nothing to do.
       if (!state.activeTour.length) return;
@@ -1403,7 +1797,7 @@ playArrivalPrompt: (plaque) => {
   try {
     const text = `
       You are now at ${plaque.title}.
-      When it’s safe to do so, switch back to Curated Tours and tap Listen to hear the story.
+      When it is safe to do so, tap Listen to hear the story.
     `;
 
     const u = new SpeechSynthesisUtterance(text.trim());
@@ -1460,9 +1854,8 @@ playArrivalPrompt: (plaque) => {
   }
 
   if (openMaps) {
-    const remainingStops = app.getRemainingStops();
-    const navStops = remainingStops.length ? remainingStops : state.activeTour;
-    const navUrl = Geo.generateMapsNavUrl(navStops);
+    const targetStop = state.activeTour[state.currentStopIndex || 0];
+    const navUrl = Geo.generateMapsStopUrl(targetStop);
     if (navUrl) window.open(navUrl, '_blank');
   }
 
@@ -1473,15 +1866,24 @@ skipStop: (plaqueId) => {
   if (!state.activeTour || !state.activeTour.length) return;
 
   const ok = confirm(
-    'Skip this stop and move on to the next? I’ll update your walking directions in Google Maps.'
+    'Skip this stop and move on to the next? Curated Tours will update the in-app map.'
   );
   if (!ok) return;
 
-  app.advanceToNextFromStop(plaqueId, 'Skipping this stop.', true);
+  app.advanceToNextFromStop(plaqueId, 'Skipping this stop.', false);
 },
 
 continueToNext: (plaqueId) => {
-  app.advanceToNextFromStop(plaqueId, 'Okay, moving on to the next stop.', true);
+  if (
+    state.currentSpeechPlaqueId === plaqueId &&
+    (state.isSpeechPlaying || state.isSpeechPaused)
+  ) {
+    const ok = confirm(
+      'The story audio is still in progress. Move on to the next stop anyway?'
+    );
+    if (!ok) return;
+  }
+  app.advanceToNextFromStop(plaqueId, 'Okay, moving on to the next stop.', false);
 },
 
       // Logic: Load Collections (and feed autocomplete)
@@ -2047,6 +2449,7 @@ stopTourAndSaveProgress: () => {
 updateActionBar: () => {
   const bar = document.getElementById('action-bar');
   if (!bar) return;
+  bar.classList.remove('hidden');
 
   const isPaidTour = !!(state.activeTourMeta && state.activeTourMeta.isPaid);
   const isManualPlanningContext =
@@ -2057,6 +2460,7 @@ updateActionBar: () => {
   if (isPaidTour) {
     state.selectedForRemoval = new Set();
     bar.innerHTML = '';
+    bar.classList.add('hidden');
     return;
   }
 
@@ -2095,7 +2499,7 @@ updateActionBar: () => {
                  font-bold py-3 rounded-xl flex items-center justify-center gap-2
                  shadow-sm transition-colors"
         >
-          ${Icons.MapPin} Start in Google Maps
+          ${Icons.MapPin} Fallback: open Google route
         </a>
         ${previewButtonHtml}
         <button
@@ -2147,7 +2551,7 @@ updateActionBar: () => {
           target="_blank"
           class="w-full bg-blue-100 hover:bg-blue-200 text-plaque-blue font-bold py-3 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors"
         >
-          ${Icons.MapPin} Start in Google Maps
+          ${Icons.MapPin} Fallback: open Google route
         </a>
         ${previewButtonHtml}
         <button
@@ -2164,6 +2568,7 @@ updateActionBar: () => {
       render: () => {
   const root = document.getElementById('app');
   let html = '';
+  app.destroyAllMaps();
 
   if (state.toast) {
     html += `
@@ -2212,8 +2617,10 @@ if (state.justNavigated) {
 }
 
 if (state.view === 'TOUR') {
-  // Ensure Maps + Save action bar is rendered
+  app.renderRouteMap('tour-map', { mode: 'tour' });
   app.updateActionBar();
+} else if (state.view === 'PREVIEW') {
+  app.renderRouteMap('preview-map', { mode: 'preview' });
 }
 
 // Always refresh bottom navigation
@@ -2250,21 +2657,23 @@ app.renderNav();
             Make sure your phone isn’t muted and your volume is set to a comfortable level.
           </li>
           <li>
+            If your phone locks and audio pauses, reopen Curated Tours and tap
+            <span class="font-semibold">Resume recorded audio</span>.
+          </li>
+          <li>
             In busy areas, <span class="font-semibold">earbuds or headphones</span> help – but always stay
             aware of traffic and your surroundings.
           </li>
           <li>
-            Your tour will open in <span class="font-semibold">Google Maps</span>. Use Maps to walk towards
-            each stop, then switch back to Curated Tours once you’ve arrived.
+            The tour now runs inside <span class="font-semibold">Curated Tours</span>, with the map, current stop,
+            and audio all on one screen.
           </li>
           <li>
             Check the card in Curated Tours to confirm the <span class="font-semibold">address and description</span>
             of the building or site you should be looking at.
           </li>
           <li>
-            Curated Tours will give on-foot <span class="font-semibold">audio cues</span> as you approach each stop
-            and again when you are right outside. This happens automatically in the background
-            while your tour is running.
+            Google Maps is now only a fallback link if the in-app map cannot give you enough confidence.
           </li>
           <li>
             Some stops may be <span class="font-semibold">private homes or workplaces</span>. Please be respectful –
@@ -2273,7 +2682,7 @@ app.renderNav();
           <li>
             After each story, tap <span class="font-semibold">“Continue to next stop”</span>.
             If you need to miss a stop, use <span class="font-semibold">“Skip this stop”</span>.
-            In both cases I’ll regenerate your walking directions in Google Maps to the next stop.
+            In both cases Curated Tours updates the map and current stop.
           </li>
         </ul>
 
@@ -2282,7 +2691,7 @@ app.renderNav();
             onclick="app.startTourAndOpenMaps()"
             class="w-full bg-plaque-blue hover:bg-blue-900 text-white font-bold py-3 rounded-xl shadow-md transition-colors flex items-center justify-center gap-2"
           >
-            Got it – let’s go!
+            Got it – start in Curated Tours
           </button>
 
           <button
@@ -2541,16 +2950,23 @@ app.renderNav();
             Suggested start
           </p>
           <p class="text-sm text-gray-800">
-            Start near <span class="font-semibold">${escapeHtml(startLabel)}</span>. The route below is already ordered for a compact walk from that area.
+            Start near <span class="font-semibold">${escapeHtml(startLabel)}</span>. The in-app map below shows the full route before you unlock.
           </p>
           <div class="flex flex-col gap-2 sm:flex-row">
             ${startAreaUrl
-              ? `<a href="${escapeHtml(startAreaUrl)}" target="_blank" class="flex-1 bg-white border border-blue-200 text-plaque-blue text-sm font-semibold py-2.5 px-3 rounded-lg text-center hover:bg-blue-50">Open start area</a>`
+              ? `<a href="${escapeHtml(startAreaUrl)}" target="_blank" class="flex-1 bg-white border border-blue-200 text-plaque-blue text-sm font-semibold py-2.5 px-3 rounded-lg text-center hover:bg-blue-50">Fallback: open start area</a>`
               : ''}
             ${routePreviewUrl
-              ? `<a href="${escapeHtml(routePreviewUrl)}" target="_blank" class="flex-1 bg-white border border-blue-200 text-plaque-blue text-sm font-semibold py-2.5 px-3 rounded-lg text-center hover:bg-blue-50">Preview route</a>`
+              ? `<a href="${escapeHtml(routePreviewUrl)}" target="_blank" class="flex-1 bg-white border border-blue-200 text-plaque-blue text-sm font-semibold py-2.5 px-3 rounded-lg text-center hover:bg-blue-50">Fallback: Google route</a>`
               : ''}
           </div>
+        </div>
+
+        <div class="space-y-2">
+          <div id="preview-map" class="ct-map"></div>
+          <p class="text-xs text-gray-500">
+            The map shows the ordered tour route and numbered stops. The line is a planning guide; always follow pavements, crossings, and local conditions.
+          </p>
         </div>
 
         ${stopCount > 0
@@ -2762,6 +3178,8 @@ renderTour: () => {
 
   const total = state.activeTour.length;
   let currentCardHtml = '';
+  let safeIndex = 0;
+  let currentPlaque = null;
 
   if (!total) {
     currentCardHtml = `
@@ -2771,10 +3189,33 @@ renderTour: () => {
     `;
   } else {
     const idx = app.getCurrentStopIndex();
-    const safeIndex = Math.min(Math.max(idx, 0), total - 1);
-    const plaque = state.activeTour[safeIndex];
-    currentCardHtml = app.renderCard(plaque, safeIndex, total);
+    safeIndex = Math.min(Math.max(idx, 0), total - 1);
+    currentPlaque = state.activeTour[safeIndex];
+    currentCardHtml = app.renderCard(currentPlaque, safeIndex, total);
   }
+
+  const liveProgressHtml = currentPlaque
+    ? `
+      <div class="mb-4 bg-white border border-blue-100 rounded-xl p-4 shadow-sm">
+        <p class="text-xs font-semibold text-plaque-blue uppercase tracking-wide">
+          Current stop
+        </p>
+        <div class="mt-1 flex items-start justify-between gap-3">
+          <div>
+            <p class="text-base font-bold text-gray-900">
+              Stop ${safeIndex + 1} of ${total}: ${escapeHtml(currentPlaque.title)}
+            </p>
+            <p class="text-xs text-gray-500 mt-1">
+              Stay in Curated Tours: follow the map, play the story, then continue when you are ready.
+            </p>
+          </div>
+          <span class="text-xs font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded-full whitespace-nowrap">
+            ${safeIndex + 1}/${total}
+          </span>
+        </div>
+      </div>
+    `
+    : '';
 
   return `
     <div class="pb-32">
@@ -2788,6 +3229,13 @@ renderTour: () => {
       </div>
 
       ${startNote}
+      ${liveProgressHtml}
+      <div class="mb-4 space-y-2">
+        <div id="tour-map" class="ct-map"></div>
+        <p class="text-xs text-gray-500">
+          Blue pins are upcoming stops, green pins are completed stops, and the amber pin is your current stop. The green line connects your latest location to the current stop when location is available.
+        </p>
+      </div>
       ${nearStopBanner}
 
       <div class="space-y-4">
@@ -2840,6 +3288,32 @@ renderCard: (plaque, index, total) => {
   const isStoryVisible = !!(state.visibleStoryIds && state.visibleStoryIds.has(plaque.id));
   const storyText = plaque.bio || plaque.summary || '';
   const hasRecordedAudio = !!plaque.audioFile;
+  const currentStopMapsUrl = Geo.generateMapsStopUrl(plaque);
+  const savedAudioProgress = app.getAudioProgress(plaque.id);
+  const showSavedProgress =
+    hasRecordedAudio &&
+    !isCurrentAudio &&
+    savedAudioProgress.time > 2 &&
+    (!savedAudioProgress.duration || savedAudioProgress.time < savedAudioProgress.duration - 2);
+  const audioTime = isCurrentAudio ? state.currentAudioTime : savedAudioProgress.time;
+  const audioDuration = isCurrentAudio ? state.currentAudioDuration : savedAudioProgress.duration;
+  const audioMax = Math.max(1, Math.floor(audioDuration || audioTime || 1));
+  const audioValue = Math.min(audioMax, Math.floor(audioTime || 0));
+  const audioDurationLabel = audioDuration ? app.formatAudioTime(audioDuration) : '--:--';
+  const listenLabel = isCurrentAudio && isPlaying
+    ? 'Restart audio'
+    : showSavedProgress
+      ? 'Resume recorded audio'
+      : hasRecordedAudio
+        ? 'Play recorded audio'
+        : 'Listen';
+  const audioInProgress = isCurrentAudio && (isPlaying || isPaused);
+  const continueLabel = audioInProgress
+    ? (isLast ? 'Finish before audio ends' : 'Continue before audio ends')
+    : (isLast ? 'Finish tour' : 'Continue to next stop');
+  const continueClass = audioInProgress
+    ? 'bg-yellow-50 hover:bg-yellow-100 text-yellow-900 border border-yellow-300'
+    : 'bg-plaque-blue hover:bg-blue-900 text-white';
 
   return `
     <div id="card-${escapeHtml(plaque.id)}"
@@ -2896,6 +3370,21 @@ renderCard: (plaque, index, total) => {
           <span class="font-medium">${escapeHtml(plaque.address)}</span>
         </div>
 
+        ${currentStopMapsUrl
+          ? `
+        <a
+          href="${escapeHtml(currentStopMapsUrl)}"
+          target="_blank"
+          class="w-full mb-3 flex items-center justify-center gap-2 py-2 px-3
+                 bg-white hover:bg-gray-50 text-gray-700 rounded-lg
+                 text-xs font-semibold transition-colors border border-gray-200"
+        >
+          ${Icons.MapPin}
+          <span>Fallback: open this stop in Google Maps</span>
+        </a>
+        `
+          : ''}
+
         <p class="text-gray-600 text-sm leading-relaxed mb-4">
           ${escapeHtml(plaque.summary)}
         </p>
@@ -2910,8 +3399,39 @@ renderCard: (plaque, index, total) => {
                    text-sm font-semibold transition-colors"
           >
             ${Icons.Speaker}
-            <span>${isCurrentAudio && isPlaying ? 'Restart audio' : hasRecordedAudio ? 'Play recorded audio' : 'Listen'}</span>
+            <span>${listenLabel}</span>
           </button>
+
+          ${hasRecordedAudio && (isCurrentAudio || showSavedProgress)
+            ? `
+          <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2">
+            <div class="flex items-center justify-between gap-3">
+              <p class="text-xs font-semibold text-gray-700">
+                ${isCurrentAudio ? (isPaused ? 'Audio paused' : 'Audio playing') : 'Saved audio position'}
+              </p>
+              <p id="audio-time-${escapeHtml(plaque.id)}" class="text-xs tabular-nums text-gray-500">
+                ${app.formatAudioTime(audioTime)} / ${audioDurationLabel}
+              </p>
+            </div>
+            <input
+              id="audio-range-${escapeHtml(plaque.id)}"
+              type="range"
+              min="0"
+              max="${audioMax}"
+              value="${audioValue}"
+              ${isCurrentAudio ? `oninput="app.seekAudio(this.value)"` : 'disabled'}
+              class="w-full accent-green-600"
+            >
+            <button
+              type="button"
+              onclick="app.restartAudio(${jsString(plaque.id)})"
+              class="text-xs font-semibold text-plaque-blue hover:underline"
+            >
+              Restart from beginning
+            </button>
+          </div>
+          `
+            : ''}
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             ${!isUnlocked
@@ -2983,10 +3503,10 @@ renderCard: (plaque, index, total) => {
           <button
             type="button"
             onclick="app.continueToNext(${jsString(plaque.id)})"
-            class="w-full py-2.5 rounded-lg bg-plaque-blue hover:bg-blue-900
-                   text-white text-sm font-semibold"
+            class="w-full py-2.5 rounded-lg ${continueClass}
+                   text-sm font-semibold"
           >
-            ${isLast ? 'Finish tour' : 'Continue to next stop'}
+            ${continueLabel}
           </button>
 
           <!-- Back / Skip row + centred Stop button -->
@@ -3247,26 +3767,24 @@ renderCard: (plaque, index, total) => {
         info screen. From here you can:
       </p>
       <ul class="list-disc list-inside text-sm text-gray-700 space-y-1">
-        <li>Read safety tips and how the audio cues work.</li>
-        <li>Tap <strong>Got it – let’s go!</strong> to open the full route in
-            <strong>Google Maps</strong> for walking directions.</li>
+        <li>Read safety tips and how the live tour flow works.</li>
+        <li>Tap <strong>Got it – start in Curated Tours</strong> to open the live in-app map.</li>
         <li>Use <strong>Share this Curated Tour</strong> to copy or send a
             link so someone else can open the same route and demo unlock it
             on their own device.</li>
       </ul>
 
-      <h3 class="text-sm font-semibold text-gray-900 mt-3">7. Walk with audio cues</h3>
+      <h3 class="text-sm font-semibold text-gray-900 mt-3">7. Walk between stops</h3>
       <p class="text-sm text-gray-700">
-        As you walk with Google Maps open, Curated Tours runs quietly in the
-        background. When you’re close to your next stop, the app can give you
-        short <strong>audio nudges</strong> such as “you’re approaching” or
-        “you’re here”, and show a banner for the stop on screen.
+        Stay in Curated Tours to see the map, your current stop, and the story audio
+        in one place. Google Maps remains available only as a fallback link.
       </p>
       <p class="text-sm text-gray-700">
-        When it’s safe, switch back to Curated Tours to see the stop card and
-        tap <strong>Listen</strong>. The full story will be read aloud using
-        text-to-speech, but only when you are physically near that stop – this
-        keeps the experience tied to the real place, not a sofa.
+        When it is safe, use the stop card below the map and tap
+        <strong>Listen</strong>. Where recorded MP3 audio is available,
+        Curated Tours will use it; otherwise it will fall back to text-to-speech.
+        If recorded audio pauses after your phone locks, reopen the app and
+        resume from the saved position.
       </p>
 
       <h3 class="text-sm font-semibold text-gray-900 mt-3">8. Move between stops</h3>
@@ -3274,8 +3792,7 @@ renderCard: (plaque, index, total) => {
         After each story you can:
       </p>
       <ul class="list-disc list-inside text-sm text-gray-700 space-y-1">
-        <li>Tap <strong>Continue to next stop</strong> to update your route in
-            Google Maps and carry on.</li>
+        <li>Tap <strong>Continue to next stop</strong> to update the in-app map and carry on.</li>
         <li>Tap <strong>Back to previous</strong> if you want to revisit the
             last location.</li>
         <li>Tap <strong>Skip this stop</strong> to miss one out and re-route
@@ -3357,6 +3874,29 @@ renderCard: (plaque, index, total) => {
                 `;
       }
     };
+
+    document.addEventListener('visibilitychange', () => {
+      if (state.currentAudioElement) {
+        app.updateAudioProgressUi();
+      }
+
+      if (
+        !document.hidden &&
+        state.currentAudioElement &&
+        state.currentAudioElement.paused &&
+        state.isSpeechPlaying
+      ) {
+        state.isSpeechPlaying = false;
+        state.isSpeechPaused = true;
+        app.render();
+      }
+    });
+
+    window.addEventListener('pagehide', () => {
+      if (state.currentAudioElement) {
+        app.updateAudioProgressUi();
+      }
+    });
 
     // Initialize App
     app.init();
